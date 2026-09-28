@@ -102,45 +102,52 @@ async function refresh(ctx, first) {
 function card(o) {
   const where = o.location_type === 'room' ? `Room ${o.location}` : `Table ${o.location}`;
   const items = (o.order_items || []).sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const hhmm = clock;
-  const timeline = (o.status_history || []).map((h) => `<span class="tl tl-${h.status}">${DOT[h.status] || ''} ${LABEL[h.status] || h.status} <small>${hhmm(h.at)}</small></span>`).join('<span class="tl-arrow">→</span>');
+  const dot = (st) => `<i class="sd sd-${st}" aria-hidden="true"></i>`;
+  const timeline = (o.status_history || []).map((h) =>
+    `<span class="tl tl-${h.status}">${dot(h.status)}${LABEL[h.status] || h.status} <small>${clock(h.at)}</small></span>`).join('<span class="tl-arrow">→</span>');
   const mail = o.notified_at
     ? '<span class="tag tag-info">E-mailed</span>'
     : (o.notify_error ? `<span class="tag tag-warn" title="${esc(o.notify_error)}">E-mail not sent</span>` : '');
   return `
     <article class="order-card st-${o.status}" data-order="${o.id}">
-      <header class="order-head">
-        <div>
+      <header class="order-band">
+        <div class="ob-main">
           <strong class="order-no">#${o.order_no}</strong>
           <span class="order-where">${esc(where)}</span>
         </div>
-        <div class="order-meta">
-          <span class="status status-${o.status}">${DOT[o.status]} ${LABEL[o.status]}</span>
-          <span class="hint">${esc(ago(o.created_at))}</span>
+        <div class="ob-side">
+          <span class="ob-status">${dot(o.status)}${LABEL[o.status]}</span>
+          <span class="ob-ago">${esc(ago(o.created_at))}</span>
         </div>
       </header>
-      ${timeline ? `<p class="order-timeline">${timeline}</p>` : ''}
-      ${o.guest_name ? `<p class="order-guest">Guest: <strong>${esc(o.guest_name)}</strong></p>` : ''}
-      <ul class="order-items" role="list">
-        ${items.map((i) => `
-          <li>
-            <span class="oi-qty">${i.qty}×</span>
-            <span class="oi-main">
-              <span class="oi-name">${esc(en(i.name))}${ar(i.name) ? ` <span class="nm-sub" dir="rtl">${esc(ar(i.name))}</span>` : ''}</span>
-              ${(i.options || []).length ? `<span class="oi-opts">${i.options.map((x) => `${esc(en(x.group))}: <b>${esc(en(x.option))}</b>`).join(' · ')}</span>` : ''}
-              ${i.note ? `<span class="oi-note">📝 ${esc(i.note)}</span>` : ''}
-            </span>
-            <span class="oi-total">${money(i.line_total)}</span>
-          </li>`).join('')}
-      </ul>
-      ${o.guest_note ? `<p class="oi-note order-note">📝 ${esc(o.guest_note)}</p>` : ''}
-      <footer class="order-foot">
-        <span class="order-total">${o.item_count} items · <strong>${money(o.subtotal)}</strong> ${mail}</span>
-        <span class="order-actions">
-          ${['new', 'accepted'].includes(o.status) ? `<button type="button" class="btn btn-small btn-danger-quiet" data-status="cancelled" data-id="${o.id}">Cancel</button>` : ''}
-          ${NEXT[o.status] ? `<button type="button" class="btn btn-small btn-st btn-st-${NEXT[o.status]}" data-status="${NEXT[o.status]}" data-id="${o.id}">${DOT[NEXT[o.status]]} ${ACTION[o.status]}</button>` : ''}
-        </span>
-      </footer>
+      <div class="order-body">
+        ${timeline ? `<p class="order-timeline">${timeline}</p>` : ''}
+        ${o.guest_name ? `<p class="order-guest">Guest: <strong>${esc(o.guest_name)}</strong></p>` : ''}
+        <table class="order-table">
+          <thead><tr><th>Qty</th><th>Item</th><th class="num">Amount</th></tr></thead>
+          <tbody>
+            ${items.map((i) => `
+              <tr>
+                <td class="oi-qty">${i.qty}×</td>
+                <td>
+                  <span class="oi-name">${esc(en(i.name))}</span>${ar(i.name) ? ` <span class="nm-sub" dir="rtl">${esc(ar(i.name))}</span>` : ''}
+                  ${(i.options || []).length ? `<span class="oi-opts">${i.options.map((x) => `${esc(en(x.group))}: <b>${esc(en(x.option))}</b>`).join(' · ')}</span>` : ''}
+                  ${i.note ? `<span class="oi-note">📝 ${esc(i.note)}</span>` : ''}
+                </td>
+                <td class="num">${money(i.line_total)}</td>
+              </tr>`).join('')}
+          </tbody>
+          <tfoot><tr><td></td><td>Total <small>(${o.item_count} items)</small></td><td class="num">${money(o.subtotal)}</td></tr></tfoot>
+        </table>
+        ${o.guest_note ? `<p class="oi-note order-note">📝 ${esc(o.guest_note)}</p>` : ''}
+        <footer class="order-foot">
+          <span class="order-mail">${mail}</span>
+          <span class="order-actions">
+            ${['new', 'accepted'].includes(o.status) ? `<button type="button" class="btn btn-small btn-st btn-st-cancelled" data-status="cancelled" data-id="${o.id}">${dot('cancelled')}Cancel</button>` : ''}
+            ${NEXT[o.status] ? `<button type="button" class="btn btn-small btn-st btn-st-${NEXT[o.status]}" data-status="${NEXT[o.status]}" data-id="${o.id}">${dot(NEXT[o.status])}${ACTION[o.status]}</button>` : ''}
+          </span>
+        </footer>
+      </div>
     </article>`;
 }
 

@@ -603,3 +603,16 @@ body.has-cart #app-footer { padding-bottom: calc(5.5rem + env(safe-area-inset-bo
 .notice-live.st-ready { animation: ready-pulse 1.6s ease-in-out 3; }
 .live-dot-lg { font-size: 1.2rem; line-height: 1; }
 @keyframes ready-pulse { 50% { box-shadow: 0 0 0 6px rgb(21 128 61 / .25); } }
+
+/* "My orders" cards: status-coloured header band, like the admin and e-mails */
+.my-order { --st: #D97706; --st-bg: #FEF3C7; padding: 0; overflow: hidden; border-inline-start: 1px solid var(--c-line) !important; }
+.my-order.st-accepted { --st: #1D4ED8; --st-bg: #DBEAFE; }
+.my-order.st-ready { --st: #15803D; --st-bg: #DCFCE7; }
+.my-order.st-served { --st: #475569; --st-bg: #E2E8F0; }
+.my-order.st-cancelled { --st: #B91C1C; --st-bg: #FEE2E2; }
+.my-order > header { background: var(--st); padding: .6rem .9rem; }
+.my-order > header strong, .my-order > header span { color: #fff !important; }
+.my-order > header .my-status { background: rgb(255 255 255 / .22) !important; color: #fff !important; }
+.my-order > ul, .my-order > .my-total, .my-order > .my-actions { margin-inline: .9rem; }
+.my-order > ul li { background: var(--st-bg); padding: .35rem .5rem; border-radius: 6px; }
+.my-order > .my-actions { margin-bottom: .8rem; }
