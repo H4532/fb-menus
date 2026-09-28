@@ -583,3 +583,17 @@ body { background: #F3F6F4; }
 .pw-row { display: flex; gap: .4rem; }
 .pw-row input { flex: 1; font-family: ui-monospace, Consolas, monospace; }
 .cred { background: #F3F6F4; border-radius: 8px; padding: .75rem; white-space: pre-wrap; font-size: .9rem; user-select: all; }
+
+/* iPhone install tip + standalone app polish */
+#install-tip {
+  position: fixed; inset-inline: .75rem; bottom: calc(5.2rem + env(safe-area-inset-bottom, 0px)); z-index: 90;
+  background: #15241C; color: #fff; border-radius: 14px; padding: .8rem 2.6rem .8rem 1rem;
+  box-shadow: 0 10px 30px rgb(0 0 0 / .3); font-size: .9rem;
+}
+#install-tip p { margin: 0; }
+#install-tip button { position: absolute; top: .45rem; inset-inline-end: .45rem; background: none; border: 0; color: #fff; font-size: 1.1rem; width: 36px; height: 36px; }
+.share-ico { display: inline-block; border: 1.5px solid #fff; border-radius: 4px; padding: 0 .25rem; line-height: 1.2; }
+@media (display-mode: standalone) {
+  html, body { overscroll-behavior-y: none; }
+  .a-top { padding-top: max(env(safe-area-inset-top, 0px), .25rem); }
+}

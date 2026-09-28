@@ -6,7 +6,13 @@
   <title>Menu admin</title>
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#145A3C">
-  <link rel="icon" href="../roshan/icon-192.png" type="image/png">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Menu Admin">
   <link rel="preload" href="../assets/fonts/readex-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="../assets/css/base.css">
   <link rel="stylesheet" href="../assets/css/admin.css">
@@ -16,6 +22,21 @@
 <body>
   <div id="app"><main class="auth"><span class="spinner"></span></main></div>
   <div id="toasts" aria-live="polite"></div>
+  <div id="install-tip" hidden>
+    <p><strong>Install on your iPhone:</strong> tap <span class="share-ico" aria-label="Share">⬆︎</span> <em>Share</em>, then <em>Add to Home Screen</em>.</p>
+    <button type="button" aria-label="Close">✕</button>
+  </div>
+  <script>
+    // Show a one-time install tip in Safari on iPhone/iPad (not when already installed).
+    (function () {
+      var ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var standalone = window.navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+      var seen = false; try { seen = localStorage.getItem('fbm:install-tip') === '1'; } catch (e) {}
+      if (!ios || standalone || seen) return;
+      var tip = document.getElementById('install-tip'); tip.hidden = false;
+      tip.querySelector('button').onclick = function () { tip.hidden = true; try { localStorage.setItem('fbm:install-tip', '1'); } catch (e) {} };
+    })();
+  </script>
   <script type="module">
     // The admin is always live: drop copies saved by the guest-menu offline helper
     // (older versions also cached admin code), ask the helper to update, then start.
