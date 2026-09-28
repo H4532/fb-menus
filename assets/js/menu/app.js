@@ -50,6 +50,7 @@ function applyBrand(config) {
 // Boot
 // ---------------------------------------------------------------------------
 function startWatch() {
+  if (!locationFromUrl(state.params)) return;       // plain menu link: no order tracking
   watchOrders(state.config.slug, locationFromUrl(state.params), (active, changed) => {
     for (const o of changed) {
       guestToast(`${STATUS_DOT[o.status] || ''} ${t('order_status_changed', { n: o.order_no, status: t(`status_${o.status}`) })}`);
@@ -197,15 +198,17 @@ function renderNotice() {
       <strong>${esc(t('room_service'))}</strong> ${esc(t('room_service_call', { ext }))}
     </p>`);
   }
+  // "My orders" and live status only when opened from a table/room QR code,
+  // and only for that table/room. The plain menu link stays a plain menu.
   const here = locationFromUrl(state.params);
-  const live = state.config ? activeOrders(state.config.slug, here) : [];
+  const live = state.config && here ? activeOrders(state.config.slug, here) : [];
   for (const o of live.slice(0, 3)) {
     notes.push(`<button type="button" class="notice notice-live st-${esc(o.status || 'new')}" data-my-orders>
       <span class="live-dot-lg" aria-hidden="true">${STATUS_DOT[o.status || 'new']}</span>
       <span><strong>#${esc(o.order_no)}</strong> · ${esc(t(`status_${o.status || 'new'}`))}${estimateText(o) ? ` · ⏱ ${esc(estimateText(o))}` : ''}</span>
     </button>`);
   }
-  const mine = state.config ? savedOrders(state.config.slug, here).length : 0;
+  const mine = state.config && here ? savedOrders(state.config.slug, here).length : 0;
   if (mine) notes.push(`<button type="button" class="notice notice-myorders" data-my-orders>🧾 ${esc(t('my_orders'))} <span>${mine}</span></button>`);
   el.innerHTML = notes.join('');
   el.hidden = notes.length === 0;

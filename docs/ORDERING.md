@@ -33,7 +33,7 @@ Guests pay when the order is served; nothing is charged online.
 
 ## My orders per table/room
 
-Opened from a table or room QR code, “My orders” and the status banner show only orders for **that** table or room. Opened from the plain menu link, they show every order sent from the phone.
+“My orders” and the status banner appear only when the menu is opened from a table or room QR code, and show only orders for **that** table or room. The plain menu link is a plain menu with no order history.
 
 ## Push notifications to the team (app closed)
 
