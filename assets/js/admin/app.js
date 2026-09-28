@@ -281,4 +281,10 @@ async function changePassword() {
   });
 }
 
+// Background worker for notifications; tapping a notification opens Orders.
+import('./push.js').then((p) => p.registration()).catch(() => {});
+navigator.serviceWorker?.addEventListener('message', (e) => {
+  if (e.data?.type === 'open-orders') location.hash = '#orders';
+});
+
 boot();

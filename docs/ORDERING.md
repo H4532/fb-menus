@@ -35,6 +35,17 @@ Guests pay when the order is served; nothing is charged online.
 
 Opened from a table or room QR code, “My orders” and the status banner show only orders for **that** table or room. Opened from the plain menu link, they show every order sent from the phone.
 
+## Push notifications to the team (app closed)
+
+- **Who gets them:** every device of every user with the **Orders** right. Each person turns them on once per device in **Admin → Orders → Turn on notifications**.
+- **iPhone/iPad** (iOS 16.4 or later):
+  1. Install the admin first: Safari → Share → **Add to Home Screen**.
+  2. Open **Menu Admin** from the home screen, tap **Turn on notifications**, then **Allow**.
+- **Android and computers:** Chrome, Edge or Safari work directly; installing is optional.
+- **Send test** checks the device. Tapping a notification opens the Orders tab.
+- **How it works:** a new order runs the `orders_push_new` trigger. It calls the `send-push` Edge Function, which delivers through Apple/Google/Mozilla push services using the VAPID keys in `private.app_settings`. Devices that were removed or uninstalled are cleaned up automatically.
+- If notifications stop on an iPhone, check **Settings → Notifications → Menu Admin** and Focus modes.
+
 ## Order status
 
 | Status | Colour | Set by | Guest sees |

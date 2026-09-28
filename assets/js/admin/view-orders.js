@@ -2,6 +2,7 @@
 import { esc } from '../core/i18n.js';
 import * as api from './api.js';
 import { $, $$, toast, errorToast, money } from './ui.js';
+import * as push from './push.js';
 
 const POLL_MS = 15000;
 const NEXT = { new: 'accepted', accepted: 'ready', ready: 'served' };
@@ -52,6 +53,7 @@ export function renderOrders(ctx) {
       </div>
     </div>
     ${enabled ? '' : `<p class="notice">Guests can’t order yet. Turn on <strong>Take orders</strong> in Settings.</p>`}
+    <div class="push-box" id="push-box"></div>
     <p class="hint">Updates every 15 seconds. New orders beep and show at the top.</p>
     <div id="orders-list"><div class="loading"><span class="spinner"></span></div></div>`;
 
@@ -62,6 +64,7 @@ export function renderOrders(ctx) {
   }));
   root.addEventListener('click', (e) => onAction(ctx, e));
 
+  renderPushBox(ctx);
   clearInterval(timer);
   seen = new Set();
   refresh(ctx, true);
@@ -222,4 +225,39 @@ async function onAction(ctx, e) {
     errorToast(err);
     btn.disabled = false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Notifications on this device
+// ---------------------------------------------------------------------------
+async function renderPushBox(ctx) {
+  const box = $('#push-box');
+  if (!box) return;
+  const st = await push.state().catch(() => 'unsupported');
+  const msg = {
+    'install-first': '🔔 To get order notifications on this iPhone, install the app first: tap <b>Share</b> → <b>Add to Home Screen</b>, then open <b>Menu Admin</b> from the home screen and come back here.',
+    unsupported: '🔕 This browser can’t receive notifications. On iPhone use the installed app (iOS 16.4 or later); on computers use Chrome, Edge or Safari.',
+    denied: '🔕 Notifications are blocked for this app. Allow them in the phone/browser settings (Notifications → Menu Admin), then reload.',
+    off: '🔔 Get a notification on this device for every new order, even when the app is closed.',
+    on: '✅ Order notifications are <b>on</b> for this device.',
+  }[st];
+  box.className = `push-box push-${st}`;
+  box.innerHTML = `
+    <p>${msg}</p>
+    <div class="push-actions">
+      ${st === 'off' ? '<button type="button" class="btn btn-primary btn-small" data-push="on">Turn on notifications</button>' : ''}
+      ${st === 'on' ? '<button type="button" class="btn btn-quiet btn-small" data-push="test">Send test</button><button type="button" class="btn btn-quiet btn-small" data-push="off">Turn off</button>' : ''}
+    </div>`;
+  box.onclick = async (e) => {
+    const b = e.target.closest('[data-push]');
+    if (!b) return;
+    b.disabled = true;
+    try {
+      if (b.dataset.push === 'on') { await push.enable(ctx.outlet.id, ctx.session.user.id); toast('Notifications turned on for this device'); }
+      if (b.dataset.push === 'off') { await push.disable(); toast('Notifications turned off for this device'); }
+      if (b.dataset.push === 'test') { await push.sendTest(ctx.outlet.id); toast('Test sent — check the notification'); }
+    } catch (err) { errorToast(err); }
+    b.disabled = false;
+    renderPushBox(ctx);
+  };
 }

@@ -15,3 +15,6 @@ export function photoUrl(path, size = 'thumb') {
   const px = PHOTO_SIZES[size] || PHOTO_SIZES.thumb;
   return `${SUPABASE_URL}/storage/v1/object/public/${PHOTO_BUCKET}/${path}-${px}.webp`;
 }
+
+// Web Push public key (VAPID). Public by design; the private key stays in the database.
+export const VAPID_PUBLIC_KEY = 'BGnyBv1rvggr_oFANSN5CyYEIjF7VFWeFM4lZhnOD1RLPWduDnL0Yw8Uzt9g2h1qXq3PZ-fnmgPZcEqoURYceh8';
