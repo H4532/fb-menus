@@ -6,8 +6,10 @@ import { renderItems } from './view-items.js';
 import { renderMenus } from './view-menus.js';
 import { renderOptions } from './view-options.js';
 import { renderSettings } from './view-settings.js';
+import { renderOrders } from './view-orders.js';
 
 const VIEWS = {
+  orders:   { label: 'Orders',   render: renderOrders,   icon: 'M6 17h12l-1.5-2V11a4.5 4.5 0 00-9 0v4zM10 20h4M12 4v2' },
   items:    { label: 'Dishes',   render: renderItems,    icon: 'M4 6h16M4 12h16M4 18h10' },
   menus:    { label: 'Menus',    render: renderMenus,    icon: 'M5 4h14v16H5zM9 8h6M9 12h6M9 16h4' },
   options:  { label: 'Choices',  render: renderOptions,  icon: 'M5 7h3m4 0h7M5 17h9m4 0h1M8 5v4M14 15v4' },
@@ -169,7 +171,7 @@ async function selectOutlet(id) {
 // ---------------------------------------------------------------------------
 function currentView() {
   const v = location.hash.replace('#', '');
-  return VIEWS[v] ? v : 'items';
+  return VIEWS[v] ? v : (ctx.outlet?.ordering?.enabled ? 'orders' : 'items');
 }
 
 function renderShell() {

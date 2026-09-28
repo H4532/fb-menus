@@ -454,3 +454,38 @@ body { background: #F3F6F4; }
 @media (max-width: 520px) {
   .thumb-empty { display: none; }
 }
+
+/* ---------- Orders ------------------------------------------------------- */
+.a-nav { grid-template-columns: repeat(5, 1fr); }
+.order-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); margin-top: .75rem; }
+.order-card {
+  background: #fff; border: 1px solid var(--c-line); border-radius: 12px; padding: .85rem 1rem;
+  display: grid; gap: .6rem; border-inline-start: 5px solid #C9D3CE;
+}
+.order-card.st-new { border-inline-start-color: #D97706; box-shadow: 0 4px 16px rgb(217 119 6 / .15); }
+.order-card.st-accepted { border-inline-start-color: #2563EB; }
+.order-card.st-ready { border-inline-start-color: var(--c-primary); }
+.order-card.st-served, .order-card.st-cancelled { opacity: .65; }
+.order-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
+.order-no { font-size: 1.5rem; color: var(--c-primary-deep); margin-inline-end: .4rem; }
+.order-where { font-size: 1.1rem; font-weight: 700; }
+.order-meta { display: grid; justify-items: end; gap: .2rem; }
+.status { font-size: .72rem; font-weight: 700; padding: .15rem .55rem; border-radius: 999px; }
+.status-new { background: #FEF3C7; color: #92400E; }
+.status-accepted { background: #DBEAFE; color: #1E40AF; }
+.status-ready { background: var(--c-accent-soft); color: var(--c-primary-deep); }
+.status-served { background: #EEE; color: #555; }
+.status-cancelled { background: #FDECEA; color: var(--c-danger); }
+.order-guest { font-size: .9rem; }
+.order-items { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
+.order-items li { display: grid; grid-template-columns: 2.2rem 1fr auto; gap: .4rem; align-items: start; }
+.oi-qty { font-weight: 800; color: var(--c-primary); font-size: 1.05rem; }
+.oi-main { display: grid; gap: .1rem; }
+.oi-name { font-weight: 600; }
+.oi-opts { font-size: .82rem; color: var(--c-muted); }
+.oi-note { font-size: .85rem; background: #FFF4D6; border-radius: 6px; padding: .2rem .45rem; justify-self: start; }
+.order-note { margin: 0; }
+.oi-total { font-variant-numeric: tabular-nums; }
+.order-foot { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; border-top: 1px solid #E6ECE9; padding-top: .6rem; }
+.order-total { font-size: .9rem; display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+.order-actions { display: flex; gap: .4rem; }

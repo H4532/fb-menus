@@ -65,6 +65,12 @@ export function renderSettings(ctx) {
       </section>
 
       <section class="block">
+        <h2 class="block-title">Guest ordering</h2>
+        ${toggle('ordering_enabled', 'Take orders from table and room QR codes', Boolean(outlet.ordering?.enabled), 'Guests who scan a table or room code can build an order and send it. Orders appear in the Orders tab.')}
+        ${field('E-mail new orders to', '<input name="notify_emails" data-notify inputmode="email" placeholder="you@hotel.com, chef@hotel.com" autocomplete="off">', 'Separate several addresses with commas (up to 5).')}
+      </section>
+
+      <section class="block">
         <h2 class="block-title">Contact</h2>
         <div class="row-fields">
           ${field('Phone', `<input name="phone" type="tel" value="${esc(c.phone || '')}" placeholder="+966 12 …">`)}
@@ -83,6 +89,12 @@ export function renderSettings(ctx) {
     </form>`;
 
   const form = $('.settings-form', root);
+  let savedEmails = [];
+  api.getOrderSettings(outlet.id).then((row) => {
+    savedEmails = row?.notify_emails || [];
+    const input = $('[data-notify]', root);
+    if (input) input.value = savedEmails.join(', ');
+  }).catch(() => {});
   $('[data-add-hours]', root).addEventListener('click', () => $('[data-hours-list]', root).insertAdjacentHTML('beforeend', hoursRow()));
   root.addEventListener('click', (e) => {
     const rm = e.target.closest('[data-remove-row]');
@@ -112,8 +124,20 @@ export function renderSettings(ctx) {
       const name = readLang(form, 'name', langs);
       if (!name[outlet.default_language] && !name[def]) throw new Error('Enter the restaurant name.');
 
+      const emails = form.elements.notify_emails.value.split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
+      if (emails.length > 5) throw new Error('Use at most 5 e-mail addresses.');
+      const bad = emails.find((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+      if (bad) throw new Error(`“${bad}” is not a valid e-mail address.`);
+      const orderingOn = form.elements.ordering_enabled.checked;
+      if (orderingOn && !emails.length) throw new Error('Add at least one e-mail address to receive orders.');
+
       btn.disabled = true;
+      if (emails.join(',') !== savedEmails.join(',')) {
+        await api.saveOrderSettings(outlet.id, emails);
+        savedEmails = emails;
+      }
       const patch = {
+        ordering: { ...(outlet.ordering || {}), enabled: orderingOn },
         name,
         tagline: readLang(form, 'tagline', langs),
         languages,

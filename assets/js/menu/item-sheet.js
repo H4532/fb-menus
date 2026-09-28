@@ -55,24 +55,32 @@ function groupRule(g) {
   return g.min > 0 ? `${rule} · ${t('required')}` : `${rule} · ${t('optional')}`;
 }
 
-function renderGroup(g) {
+function renderGroup(g, interactive) {
   return `
-    <section class="sheet-group">
+    <section class="sheet-group" data-group="${g.id}">
       <h3>${esc(tr(g.name))} <span class="rule">${esc(groupRule(g))}</span></h3>
       <ul role="list">
-        ${g.options.map((o) => `
-          <li class="${o.available ? '' : 'is-soldout'}">
-            <span class="opt-name">${esc(tr(o.name))}${o.available ? '' : ` <small>(${esc(t('sold_out'))})</small>`}</span>
+        ${g.options.map((o) => {
+          const meta = `
             <span class="opt-meta">
               ${o.calories != null ? `<span class="opt-kcal">${esc(kcal(o.calories))}</span>` : ''}
               <span class="opt-price">${g.pricing === 'replace' ? price(o.price) : (Number(o.price) > 0 ? priceDelta(o.price) : esc(t('included')))}</span>
-            </span>
-          </li>`).join('')}
+            </span>`;
+          const name = `<span class="opt-name">${esc(tr(o.name))}${o.available ? '' : ` <small>(${esc(t('sold_out'))})</small>`}</span>`;
+          if (!interactive) return `<li class="${o.available ? '' : 'is-soldout'}">${name}${meta}</li>`;
+          return `
+            <li class="${o.available ? '' : 'is-soldout'}">
+              <label class="opt-pick">
+                <input type="checkbox" class="${g.selection === 'single' ? 'as-radio' : ''}" value="${o.id}" data-opt-group="${g.id}" ${o.available ? '' : 'disabled'}>
+                ${name}${meta}
+              </label>
+            </li>`;
+        }).join('')}
       </ul>
     </section>`;
 }
 
-export function openItemSheet(data, itemId, config) {
+export function openItemSheet(data, itemId, config, order = null) {
   const item = data.items[itemId];
   if (!item) return;
   const dialog = document.getElementById('sheet');
@@ -98,7 +106,7 @@ export function openItemSheet(data, itemId, config) {
         </p>
         ${item.available ? '' : `<p class="soldout-label">${esc(t('sold_out'))}</p>`}
         ${desc ? `<p class="sheet-desc">${esc(desc)}</p>` : ''}
-        ${groups.map(renderGroup).join('')}
+        ${groups.map((g) => renderGroup(g, Boolean(order?.canOrder && item.available))).join('')}
         <section class="sheet-facts">
           <h3>${esc(t('allergens'))}</h3>
           ${item.allergens.length
@@ -109,7 +117,22 @@ export function openItemSheet(data, itemId, config) {
           ${item.caffeine_mg != null ? `<p>${esc(t('caffeine'))}: <bdi>${item.caffeine_mg} mg</bdi></p>` : ''}
         </section>
         <p class="sheet-allergy muted">${esc(t('allergy_notice'))}</p>
+        ${order?.canOrder && item.available ? `
+          <label class="field-note">
+            <span>${esc(t('note_item'))}</span>
+            <textarea rows="2" maxlength="200" data-note placeholder="${esc(t('note_item_ph'))}"></textarea>
+          </label>` : ''}
+        ${order && !order.canOrder && order.reason ? `<p class="order-hint">${esc(order.reason)}</p>` : ''}
       </div>
+      ${order?.canOrder && item.available ? `
+        <div class="sheet-order">
+          <div class="qty" role="group" aria-label="${esc(t('quantity'))}">
+            <button type="button" data-qty="-1" aria-label="${esc(t('decrease'))}">−</button>
+            <output data-qty-out>1</output>
+            <button type="button" data-qty="1" aria-label="${esc(t('increase'))}">+</button>
+          </div>
+          <button type="button" class="btn-add" data-add>${esc(t('add_to_order'))} · <span data-add-price></span></button>
+        </div>` : ''}
     </div>`;
   dialog.setAttribute('aria-labelledby', 'sheet-title');
 
@@ -118,6 +141,65 @@ export function openItemSheet(data, itemId, config) {
   dialog.onclick = (e) => { if (e.target === dialog) close(); };   // tap on backdrop
   dialog.showModal();
   dialog.querySelector('.sheet').scrollTop = 0;
+  if (order?.canOrder && item.available) wireOrdering(dialog, data, item, groups, order);
+}
+
+// ---------------------------------------------------------------------------
+// Ordering controls inside the sheet
+// ---------------------------------------------------------------------------
+function wireOrdering(dialog, data, item, groups, order) {
+  let qty = 1;
+  const boxes = [...dialog.querySelectorAll('[data-opt-group]')];
+  const chosen = () => boxes.filter((b) => b.checked).map((b) => b.value);
+
+  // Pre-select defaults; required single choices fall back to the first available option.
+  for (const g of groups) {
+    const inGroup = boxes.filter((b) => b.dataset.optGroup === g.id && !b.disabled);
+    const defaults = g.options.filter((o) => o.is_default && o.available).map((o) => o.id);
+    inGroup.forEach((b) => { b.checked = defaults.includes(b.value); });
+    if (g.selection === 'single' && g.min > 0 && !inGroup.some((b) => b.checked) && inGroup[0]) inGroup[0].checked = true;
+  }
+
+  const enforce = (changed) => {
+    const g = data.option_groups[changed.dataset.optGroup];
+    const inGroup = boxes.filter((b) => b.dataset.optGroup === g.id);
+    if (g.selection === 'single') {
+      if (changed.checked) inGroup.forEach((b) => { if (b !== changed) b.checked = false; });
+      else if (g.min > 0) changed.checked = true;      // a required single choice can't be emptied
+    } else if (g.max != null) {
+      const n = inGroup.filter((b) => b.checked).length;
+      inGroup.forEach((b) => { if (!b.checked) b.disabled = n >= g.max || !g.options.find((o) => o.id === b.value)?.available; });
+    }
+  };
+
+  const refresh = () => {
+    const unit = order.unitPrice(item.id, chosen());
+    dialog.querySelector('[data-add-price]').innerHTML = price(unit * qty);
+    dialog.querySelector('[data-qty-out]').textContent = qty;
+  };
+
+  boxes.forEach((b) => b.addEventListener('change', () => { enforce(b); refresh(); }));
+  dialog.querySelectorAll('[data-qty]').forEach((btn) => btn.addEventListener('click', () => {
+    qty = Math.max(1, Math.min(20, qty + Number(btn.dataset.qty)));
+    refresh();
+  }));
+
+  dialog.querySelector('[data-add]').addEventListener('click', () => {
+    const ids = chosen();
+    for (const g of groups) {
+      const n = g.options.filter((o) => ids.includes(o.id)).length;
+      if (n < g.min) {
+        const sec = dialog.querySelector(`[data-group="${g.id}"]`);
+        sec.classList.add('is-missing');
+        sec.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        order.toast(t('choose_required', { group: tr(g.name) }));
+        return;
+      }
+    }
+    order.onAdd(item.id, ids, qty, dialog.querySelector('[data-note]')?.value || '');
+    dialog.close();
+  });
+  refresh();
 }
 
 function lang_sep() {

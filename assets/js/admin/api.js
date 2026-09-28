@@ -126,3 +126,24 @@ export async function deletePhoto(basePath) {
   if (!basePath) return;
   await sb.storage.from(PHOTO_BUCKET).remove([`${basePath}-400.webp`, `${basePath}-1200.webp`]);
 }
+
+// ---------------------------------------------------------------------------
+// Orders
+// ---------------------------------------------------------------------------
+export const loadOrders = (outletId, sinceIso) => sb
+  .from('orders')
+  .select('*, order_items(*)')
+  .eq('outlet_id', outletId)
+  .gte('created_at', sinceIso)
+  .order('created_at', { ascending: false })
+  .limit(200)
+  .then(must);
+
+// Only the status column is writable by staff (column-level grant).
+export const setOrderStatus = (id, status) => sb.from('orders').update({ status }).eq('id', id).then(must);
+
+export const getOrderSettings = (outletId) =>
+  sb.from('outlet_order_settings').select('*').eq('outlet_id', outletId).maybeSingle().then(must);
+
+export const saveOrderSettings = (outletId, emails) =>
+  sb.from('outlet_order_settings').upsert({ outlet_id: outletId, notify_emails: emails }).then(must);

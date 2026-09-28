@@ -11,6 +11,8 @@ import { pickCurrentMenu, isServing, nowIn, nextStartToday, describeHours } from
 import { readCached, fetchMenu } from '../core/menu-data.js';
 import { photoUrl } from '../platform.js';
 import { itemSummary, openItemSheet } from './item-sheet.js';
+import { locationFromUrl } from './cart.js';
+import { setupOrdering, orderContext, quickAdd, renderCartBar, whereLabel } from './order-ui.js';
 
 const state = {
   config: null,
@@ -18,6 +20,9 @@ const state = {
   menuId: null,
   offline: false,
   params: new URLSearchParams(location.search),
+  location: null,        // {type:'table'|'room', value} from the QR code
+  orderingOn: false,
+  menuServing: false,
 };
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -73,6 +78,13 @@ export default async function boot(config) {
   setInterval(() => state.data && renderMenuTabs(), 60000);
 }
 
+async function refetch() {
+  try {
+    state.data = await fetchMenu(state.config.slug);
+    renderAll({ keepPosition: true });
+  } catch { /* keep what we have */ }
+}
+
 function start({ keepPosition = false } = {}) {
   const { outlet } = state.data;
   if (!document.documentElement.dataset.langSet) {
@@ -82,6 +94,8 @@ function start({ keepPosition = false } = {}) {
     document.documentElement.dataset.langSet = '1';
   }
   configureFormat(outlet, state.config.format);
+  state.location = locationFromUrl(state.params);
+  state.orderingOn = setupOrdering(state, { refetch });
 
   const menus = state.data.menus;
   const wanted = state.params.get('m');
@@ -105,6 +119,7 @@ function renderAll({ keepPosition = false } = {}) {
   renderMenuTabs();
   renderMenu();
   renderFooter();
+  if (state.orderingOn) renderCartBar();
 
   if (anchor) document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
 }
@@ -159,6 +174,7 @@ function renderNotice() {
   const { outlet } = state.data || {};
   const notes = [];
   if (state.offline) notes.push(`<p class="notice notice-offline">${esc(t('offline'))}</p>`);
+  if (state.orderingOn) notes.push(`<p class="notice notice-order">🛎 ${esc(t('ordering_for', { where: whereLabel(state.location) }))}</p>`);
   const ext = outlet?.contact?.room_service_ext;
   const fromRoom = state.params.get('src') === 'room' || state.params.has('r');
   if (fromRoom && ext) {
@@ -232,6 +248,7 @@ function renderMenu() {
   }
 
   const hideSoldOut = outlet.unavailable_display === 'hide';
+  state.menuServing = isServing(menu, nowIn(outlet.timezone));
   const cats = menu.categories
     .map((c) => ({
       ...c,
@@ -256,7 +273,10 @@ function renderMenu() {
     : `<div class="state"><p>${esc(t('empty_menu'))}</p></div>`);
 
   main.querySelectorAll('[data-item]').forEach((btn) => {
-    btn.addEventListener('click', () => openItemSheet(state.data, btn.dataset.item, state.config));
+    btn.addEventListener('click', () => openItemSheet(state.data, btn.dataset.item, state.config, orderContext(state.menuServing)));
+  });
+  main.querySelectorAll('[data-quick]').forEach((btn) => {
+    btn.addEventListener('click', () => quickAdd(btn.dataset.quick));
   });
   bar.querySelectorAll('a[data-cat]').forEach((a) => {
     a.addEventListener('click', (e) => {
@@ -326,6 +346,9 @@ function renderItem(item) {
         </span>
         ${thumb}
       </button>
+      ${state.orderingOn && state.menuServing && item.available ? `
+        <button type="button" class="quick-add" ${item.option_groups.length ? `data-item="${item.id}"` : `data-quick="${item.id}"`}
+                aria-label="${esc(t('add_to_order'))}: ${esc(tr(item.name))}">+</button>` : ''}
     </li>`;
 }
 
