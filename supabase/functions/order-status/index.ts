@@ -76,8 +76,22 @@ Deno.serve(async (req) => {
         </div>
         <div style="border:1px solid #d5e0da;border-top:0;padding:16px 20px;border-radius:0 0 12px 12px;background:#fff">
           <p style="margin:0 0 12px;padding:8px 10px;background:${st.bg};color:${st.color};border-radius:8px;font-weight:600">${esc(timeline)}</p>
-          <pre style="font-family:inherit;white-space:pre-wrap;margin:0 0 12px">${esc(itemsText)}</pre>
-          <p style="margin:0;font-weight:700">Total: ${esc(n.outlet.currency)} ${money(o.subtotal)}</p>
+          <table style="width:100%;border-collapse:collapse;margin:0 0 12px">
+            <thead><tr style="background:${st.color};color:#fff">
+              <th style="padding:8px;text-align:left;font-size:13px">Qty</th>
+              <th style="padding:8px;text-align:left;font-size:13px">Item</th>
+              <th style="padding:8px;text-align:right;font-size:13px">Amount</th>
+            </tr></thead>
+            <tbody>${n.items.map((i: any) => `
+              <tr style="background:${st.bg}">
+                <td style="padding:8px;border-bottom:1px solid #fff;font-weight:700;color:${st.color}">${i.qty}×</td>
+                <td style="padding:8px;border-bottom:1px solid #fff">${esc(en(i.name))}${(i.options || []).length ? `<div style="font-size:13px;color:#5C6E64">${i.options.map((x: any) => esc(en(x.option))).join(', ')}</div>` : ''}${i.note ? `<div style="font-size:13px">📝 ${esc(i.note)}</div>` : ''}</td>
+                <td style="padding:8px;border-bottom:1px solid #fff;text-align:right;white-space:nowrap">${money(i.line_total)}</td>
+              </tr>`).join('')}
+              <tr><td></td><td style="padding:10px 8px;font-weight:700">Total</td>
+                  <td style="padding:10px 8px;text-align:right;font-weight:800;white-space:nowrap">${esc(n.outlet.currency)} ${money(o.subtotal)}</td></tr>
+            </tbody>
+          </table>
           ${n.admin_url ? `<p style="margin-top:16px"><a href="${esc(n.admin_url)}" style="background:#145A3C;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:700">Open orders</a></p>` : ''}
         </div>
       </div>`;

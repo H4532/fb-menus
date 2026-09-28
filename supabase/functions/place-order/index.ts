@@ -68,7 +68,7 @@ async function notify(orderId: string) {
       `${esc(en(x.group))}: <b>${esc(en(x.option))}</b>${Number(x.price) > 0 && x.pricing === 'add' ? ` (+${money(x.price)})` : ''}`).join('<br>');
     return `
       <tr>
-        <td style="padding:10px 8px;border-bottom:1px solid #e3ebe7;font-size:20px;font-weight:700;vertical-align:top;color:#145A3C">${i.qty}×</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #e3ebe7;font-size:20px;font-weight:700;vertical-align:top;color:#B45309">${i.qty}×</td>
         <td style="padding:10px 8px;border-bottom:1px solid #e3ebe7;vertical-align:top">
           <div style="font-size:16px;font-weight:700">${esc(en(i.name))}</div>
           ${ar(i.name) ? `<div dir="rtl" style="color:#5C6E64">${esc(ar(i.name))}</div>` : ''}
@@ -81,15 +81,20 @@ async function notify(orderId: string) {
 
   const html = `
   <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;color:#15241C">
-    <div style="background:#145A3C;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0">
-      <div style="font-size:14px;opacity:.85">${esc(en(n.outlet.name))} · New order</div>
+    <div style="background:#D97706;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0">
+      <div style="font-size:14px;opacity:.9">${esc(en(n.outlet.name))} · 🟡 New order</div>
       <div style="font-size:28px;font-weight:800;margin-top:4px">#${o.order_no} — ${esc(where)}</div>
       <div dir="rtl" style="font-size:16px;margin-top:2px">طلب جديد · ${esc(whereAr)}</div>
     </div>
     <div style="border:1px solid #d5e0da;border-top:0;padding:16px 20px;border-radius:0 0 12px 12px">
       <p style="margin:0 0 8px;color:#5C6E64">${esc(time)}${o.guest_name ? ` · Guest: <b style="color:#15241C">${esc(o.guest_name)}</b>` : ''}</p>
       ${o.guest_note ? `<p style="margin:0 0 12px;padding:8px 10px;background:#FFF4D6;border-radius:8px">📝 ${esc(o.guest_note)}</p>` : ''}
-      <table style="width:100%;border-collapse:collapse">${rows}
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#D97706;color:#fff">
+          <th style="padding:8px;text-align:left;font-size:13px">Qty</th>
+          <th style="padding:8px;text-align:left;font-size:13px">Item</th>
+          <th style="padding:8px;text-align:right;font-size:13px">Amount</th>
+        </tr></thead>${rows}
         <tr><td></td><td style="padding:12px 8px;font-weight:700">Total (${o.item_count} items, VAT incl.)</td>
             <td style="padding:12px 8px;text-align:right;font-weight:800;font-size:18px;white-space:nowrap">${esc(cur)} ${money(o.subtotal)}</td></tr>
       </table>
@@ -102,14 +107,14 @@ async function notify(orderId: string) {
     ...n.items.map((i: any) => `${i.qty}x ${en(i.name)}${(i.options || []).map((x: any) => ` / ${en(x.option)}`).join('')}${i.note ? ` — note: ${i.note}` : ''}  ${money(i.line_total)}`),
     o.guest_note ? `Order note: ${o.guest_note}` : '', `Total: ${cur} ${money(o.subtotal)}`, n.admin_url || ''].filter(Boolean).join('\n');
 
-  const subject = `Order #${o.order_no} - ${where} - ${en(n.outlet.name)}`;
+  const subject = `🟡 NEW · Order #${o.order_no} · ${where} · ${en(n.outlet.name)}`;
   try {
     if (n.resend_api_key) {
-      // Preferred: Resend (HTML e-mail, needs an API key in private.app_settings).
+      // Preferred: Resend (HTML e-mail with status colours, needs an API key in private.app_settings).
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${n.resend_api_key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: n.mail_from, to: n.notify_emails, subject: `🛎 ${subject}`, html, text }),
+        body: JSON.stringify({ from: n.mail_from, to: n.notify_emails, subject, html, text }),
       });
       if (res.ok) await record({ notified_at: new Date().toISOString(), notify_error: null });
       else await record({ notify_error: `Resend ${res.status}: ${(await res.text()).slice(0, 300)}` });
@@ -127,6 +132,7 @@ async function notify(orderId: string) {
       _subject: subject,
       _template: 'table',
       _captcha: 'false',
+      'Status': '🟡 NEW  |  جديد',
       'Order': `#${o.order_no}`,
       'Where': `${where}  |  ${whereAr}`,
       'Time': time,
