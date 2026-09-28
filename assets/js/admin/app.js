@@ -7,13 +7,15 @@ import { renderMenus } from './view-menus.js';
 import { renderOptions } from './view-options.js';
 import { renderSettings } from './view-settings.js';
 import { renderOrders } from './view-orders.js';
+import { renderUsers } from './view-users.js';
 
 const VIEWS = {
-  orders:   { label: 'Orders',   render: renderOrders,   icon: 'M6 17h12l-1.5-2V11a4.5 4.5 0 00-9 0v4zM10 20h4M12 4v2' },
-  items:    { label: 'Dishes',   render: renderItems,    icon: 'M4 6h16M4 12h16M4 18h10' },
-  menus:    { label: 'Menus',    render: renderMenus,    icon: 'M5 4h14v16H5zM9 8h6M9 12h6M9 16h4' },
-  options:  { label: 'Choices',  render: renderOptions,  icon: 'M5 7h3m4 0h7M5 17h9m4 0h1M8 5v4M14 15v4' },
-  settings: { label: 'Settings', render: renderSettings, icon: 'M12 15a3 3 0 100-6 3 3 0 000 6zM4 12h2m12 0h2M12 4v2m0 12v2' },
+  orders:   { perm: 'orders',   label: 'Orders',   render: renderOrders,   icon: 'M6 17h12l-1.5-2V11a4.5 4.5 0 00-9 0v4zM10 20h4M12 4v2' },
+  items:    { perm: 'dishes',   label: 'Dishes',   render: renderItems,    icon: 'M4 6h16M4 12h16M4 18h10' },
+  menus:    { perm: 'menus',    label: 'Menus',    render: renderMenus,    icon: 'M5 4h14v16H5zM9 8h6M9 12h6M9 16h4' },
+  options:  { perm: 'menus',    label: 'Choices',  render: renderOptions,  icon: 'M5 7h3m4 0h7M5 17h9m4 0h1M8 5v4M14 15v4' },
+  users:    { perm: 'users',    label: 'Users',    render: renderUsers,    icon: 'M9 11a4 4 0 100-8 4 4 0 000 8zM2 21c.8-3.5 3.6-5.5 7-5.5s6.2 2 7 5.5M17 11a3 3 0 100-6M22 21c-.5-2.6-2.2-4.2-4.5-4.8' },
+  settings: { perm: 'settings', label: 'Settings', render: renderSettings, icon: 'M12 15a3 3 0 100-6 3 3 0 000 6zM4 12h2m12 0h2M12 4v2m0 12v2' },
 };
 
 const OUTLET_KEY = 'fbm:admin:outlet';
@@ -152,6 +154,7 @@ async function selectOutlet(id) {
   const entry = ctx.outlets.find((o) => o.outlet.id === id);
   ctx.outlet = entry.outlet;
   ctx.role = entry.role;
+  ctx.perms = entry.permissions;
   ctx.ui = {};
   try { localStorage.setItem(OUTLET_KEY, id); } catch { /* ignore */ }
 
@@ -169,9 +172,15 @@ async function selectOutlet(id) {
 // ---------------------------------------------------------------------------
 // Shell & routing
 // ---------------------------------------------------------------------------
+const can = (perm) => (ctx.perms || []).includes(perm);
+const allowedViews = () => Object.keys(VIEWS).filter((k) => can(VIEWS[k].perm));
+
 function currentView() {
   const v = location.hash.replace('#', '');
-  return VIEWS[v] ? v : (ctx.outlet?.ordering?.enabled ? 'orders' : 'items');
+  const allowed = allowedViews();
+  if (allowed.includes(v)) return v;
+  if (ctx.outlet?.ordering?.enabled && allowed.includes('orders')) return 'orders';
+  return allowed.includes('items') ? 'items' : allowed[0];
 }
 
 function renderShell() {
@@ -187,7 +196,7 @@ function renderShell() {
           ${ctx.outlets.length > 1
             ? `<select data-outlet aria-label="Outlet">${ctx.outlets.map((x) => `<option value="${x.outlet.id}" ${x.outlet.id === o.id ? 'selected' : ''}>${esc(x.outlet.name.en || Object.values(x.outlet.name)[0])}</option>`).join('')}</select>`
             : `<strong>${esc(name)}</strong>`}
-          <span class="a-role">${ctx.role === 'owner' ? 'Owner' : 'Editor'}</span>
+          <span class="a-role">${{ owner: 'Owner', manager: 'Manager', editor: 'Menu editor', staff: 'Order staff', custom: 'Staff' }[ctx.role] || 'Staff'}</span>
         </div>
         <div class="a-top-actions">
           <a class="btn btn-small btn-on-dark" href="${guestUrl}" target="_blank" rel="noopener">View menu</a>
@@ -204,8 +213,8 @@ function renderShell() {
         </div>
       </div>
     </header>
-    <nav class="a-nav" aria-label="Sections">
-      ${Object.entries(VIEWS).map(([k, v]) => `
+    <nav class="a-nav" aria-label="Sections" style="--tabs:${allowedViews().length}">
+      ${Object.entries(VIEWS).filter(([, v]) => can(v.perm)).map(([k, v]) => `
         <a href="#${k}" data-view="${k}" ${k === currentView() ? 'aria-current="page"' : ''}>
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="${v.icon}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span>${v.label}</span>
@@ -247,6 +256,7 @@ function renderView() {
   const old = $('#view');
   const fresh = old.cloneNode(false);
   old.replaceWith(fresh);
+  if (!key) { $('#view').innerHTML = '<div class="empty"><p>Your account has no rights on this restaurant yet. Ask the owner.</p></div>'; return; }
   VIEWS[key].render(ctx);
 }
 

@@ -25,12 +25,12 @@ export function renderSettings(ctx) {
   const { outlet, role } = ctx;
   const root = $('#view');
   const langs = outlet.languages;
-  const canEdit = role === 'owner';
+  const canEdit = (ctx.perms || []).includes('settings');
   const c = outlet.contact || {};
 
   root.innerHTML = `
     <div class="view-head"><h1>Settings</h1></div>
-    ${canEdit ? '' : '<p class="notice">Only the outlet owner can change these settings.</p>'}
+    ${canEdit ? '' : '<p class="notice">You don’t have the Settings right.</p>'}
     <form class="settings-form" novalidate ${canEdit ? '' : 'inert'}>
       <section class="block">
         <h2 class="block-title">Restaurant</h2>

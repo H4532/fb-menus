@@ -28,11 +28,11 @@ export const onAuth = (cb) => sb.auth.onAuthStateChange(cb);
 export async function myOutlets(userId) {
   const rows = must(await sb
     .from('outlet_admins')
-    .select('role, outlet:outlets(*)')
+    .select('role, permissions, outlet:outlets(*)')
     .eq('user_id', userId));
   return rows
     .filter((r) => r.outlet)
-    .map((r) => ({ role: r.role, outlet: r.outlet }))
+    .map((r) => ({ role: r.role, permissions: r.role === 'owner' ? ['orders', 'dishes', 'menus', 'settings', 'users'] : (r.permissions || []), outlet: r.outlet }))
     .sort((a, b) => a.outlet.slug.localeCompare(b.outlet.slug));
 }
 
@@ -166,3 +166,18 @@ export async function notifyStatus(orderId) {
 /** Staff adjust the estimated preparation time (minutes). */
 export const setOrderEstimate = (id, minutes) =>
   sb.from('orders').update({ estimated_minutes: minutes }).eq('id', id).then(must);
+
+// ---------------------------------------------------------------------------
+// Users (server function checks the caller's rights)
+// ---------------------------------------------------------------------------
+export async function manageUsers(action, outletId, body = {}) {
+  const session = (await sb.auth.getSession()).data.session;
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-users`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session?.access_token || ''}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, outlet_id: outletId, ...body }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}

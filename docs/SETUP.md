@@ -68,6 +68,22 @@ delete from public.outlet_admins
 where user_id = (select id from auth.users where email = 'person@example.com');
 ```
 
+### Managing staff after setup
+
+Once you are signed in as an owner, use **Admin → Users** instead of SQL:
+
+- **+ Add user:** enter an e-mail, an optional name and a temporary password, then choose a role or tick individual rights. Share the sign-in details shown afterwards; the user changes the password after signing in.
+- **Roles:** Owner (everything), Manager (all but Users), Menu editor (Dishes + Menus), Order staff (Orders), or Custom.
+- **Rights:**
+  - Orders
+  - Dishes: prices, sold out, photos, allergens, prep time
+  - Menus & choices
+  - Settings
+  - Users
+- Rights are enforced by the database, not just hidden in the screens.
+- Only owners can create owners or give the Users right. You can't remove yourself or the last owner.
+- **Remove** takes away access; the login is deleted if the person has no other restaurant.
+
 ## 5. Publish on GitHub Pages
 
 1. On GitHub, create a **public** repository named `fb-menus`. GitHub Pages is free for public repos.
