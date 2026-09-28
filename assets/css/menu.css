@@ -584,3 +584,22 @@ body.has-cart #app-footer { padding-bottom: calc(5.5rem + env(safe-area-inset-bo
 .my-status.st-accepted { background: #DBEAFE; color: #1E40AF !important; }
 .my-status.st-ready { background: var(--c-primary); color: #fff !important; }
 .my-status.st-cancelled { background: #FDECEA; color: var(--c-danger) !important; }
+
+/* ---------- Order status colours (same palette as admin and e-mails) ----- */
+.my-status.st-new, .notice-live.st-new { background: #FEF3C7; color: #B45309 !important; }
+.my-status.st-accepted, .notice-live.st-accepted { background: #DBEAFE; color: #1D4ED8 !important; }
+.my-status.st-ready, .notice-live.st-ready { background: #DCFCE7; color: #15803D !important; }
+.my-status.st-served { background: #E2E8F0; color: #475569 !important; }
+.my-status.st-cancelled { background: #FEE2E2; color: #B91C1C !important; }
+.my-order.st-new { border-inline-start: 5px solid #D97706; }
+.my-order.st-accepted { border-inline-start: 5px solid #1D4ED8; }
+.my-order.st-ready { border-inline-start: 5px solid #15803D; }
+.my-order.st-served { border-inline-start: 5px solid #94A3B8; }
+.my-order.st-cancelled { border-inline-start: 5px solid #B91C1C; }
+.notice-live {
+  display: flex; align-items: center; gap: .6rem; width: 100%; border: 0; cursor: pointer;
+  font-size: var(--step-0); text-align: start;
+}
+.notice-live.st-ready { animation: ready-pulse 1.6s ease-in-out 3; }
+.live-dot-lg { font-size: 1.2rem; line-height: 1; }
+@keyframes ready-pulse { 50% { box-shadow: 0 0 0 6px rgb(21 128 61 / .25); } }

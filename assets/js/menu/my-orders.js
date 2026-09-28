@@ -5,6 +5,10 @@ import { t, tr, esc, lang, isRtl } from '../core/i18n.js';
 import { price, number } from '../core/format.js';
 
 const KEEP = 20;
+export const STATUS_DOT = { new: '🟡', accepted: '🔵', ready: '🟢', served: '⚪', cancelled: '🔴', unknown: '🟡' };
+const ACTIVE = ['new', 'accepted', 'ready'];
+const WATCH_MS = 20000;
+const WATCH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const storeKey = (slug) => `fbm:orders:${slug}`;
 
@@ -90,11 +94,11 @@ export async function openMyOrders({ slug, dialog, orderAgain }) {
           ${list.length ? list.map((o) => {
             const st = statuses[o.id] || o.status || 'unknown';
             return `
-              <article class="my-order" data-id="${esc(o.id)}">
+              <article class="my-order st-${esc(st)}" data-id="${esc(o.id)}">
                 <header>
                   <strong>#${esc(o.order_no)}</strong>
                   <span>${esc(whereText(o.where))} · ${esc(when(o))}</span>
-                  <span class="my-status st-${esc(st)}">${esc(t(`status_${st}`))}</span>
+                  <span class="my-status st-${esc(st)}">${STATUS_DOT[st] || ''} ${esc(t(`status_${st}`))}</span>
                 </header>
                 <ul role="list">
                   ${o.lines.map((l) => `
@@ -254,4 +258,35 @@ export async function saveReceipt(order, onDone) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   onDone?.();
+}
+
+// ---------------------------------------------------------------------------
+// Live watch: recent open orders on this phone are checked every 20 s.
+// onUpdate(activeOrders, changedOrders) is called after each check.
+// ---------------------------------------------------------------------------
+let watchTimer = null;
+export function activeOrders(slug) {
+  return savedOrders(slug).filter((o) => ACTIVE.includes(o.status || 'new')
+    && Date.now() - new Date(o.at).getTime() < WATCH_MAX_AGE_MS);
+}
+
+export function watchOrders(slug, onUpdate) {
+  clearTimeout(watchTimer);
+  const tick = async () => {
+    const watching = activeOrders(slug);
+    if (!watching.length) { onUpdate([], []); return; }       // nothing open: stop until a new order
+    const statuses = await fetchStatuses(watching.map((o) => o.id));
+    const all = savedOrders(slug);
+    const changed = [];
+    for (const o of all) {
+      const st = statuses[o.id];
+      if (st && st !== o.status) { o.status = st; changed.push(o); }
+    }
+    if (changed.length) {
+      try { localStorage.setItem(storeKey(slug), JSON.stringify(all)); } catch { /* ignore */ }
+    }
+    onUpdate(activeOrders(slug), changed);
+    if (document.visibilityState !== 'hidden' || activeOrders(slug).length) watchTimer = setTimeout(tick, WATCH_MS);
+  };
+  tick();
 }

@@ -6,6 +6,10 @@ import { $, $$, toast, errorToast, money } from './ui.js';
 const POLL_MS = 15000;
 const NEXT = { new: 'accepted', accepted: 'ready', ready: 'served' };
 const LABEL = { new: 'New', accepted: 'Accepted', ready: 'Ready', served: 'Served', cancelled: 'Cancelled' };
+const DOT = { new: '🟡', accepted: '🔵', ready: '🟢', served: '⚪', cancelled: '🔴' };
+let activationWarned = false;
+let TZ = 'Asia/Riyadh';
+const clock = (iso) => new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 const ACTION = { new: 'Accept', accepted: 'Mark ready', ready: 'Mark served' };
 
 let timer = null;
@@ -20,7 +24,7 @@ function ago(iso) {
   const m = Math.round((Date.now() - new Date(iso)) / 60000);
   if (m < 1) return 'just now';
   if (m < 60) return `${m} min ago`;
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return clock(iso);
 }
 
 function beep() {
@@ -37,6 +41,7 @@ function beep() {
 export function renderOrders(ctx) {
   const root = $('#view');
   root.dataset.view = 'orders';
+  TZ = ctx.outlet.timezone || TZ;
   const enabled = Boolean(ctx.outlet.ordering?.enabled);
   root.innerHTML = `
     <div class="view-head">
@@ -97,6 +102,8 @@ async function refresh(ctx, first) {
 function card(o) {
   const where = o.location_type === 'room' ? `Room ${o.location}` : `Table ${o.location}`;
   const items = (o.order_items || []).sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const hhmm = clock;
+  const timeline = (o.status_history || []).map((h) => `<span class="tl tl-${h.status}">${DOT[h.status] || ''} ${LABEL[h.status] || h.status} <small>${hhmm(h.at)}</small></span>`).join('<span class="tl-arrow">→</span>');
   const mail = o.notified_at
     ? '<span class="tag tag-info">E-mailed</span>'
     : (o.notify_error ? `<span class="tag tag-warn" title="${esc(o.notify_error)}">E-mail not sent</span>` : '');
@@ -108,10 +115,11 @@ function card(o) {
           <span class="order-where">${esc(where)}</span>
         </div>
         <div class="order-meta">
-          <span class="status status-${o.status}">${LABEL[o.status]}</span>
+          <span class="status status-${o.status}">${DOT[o.status]} ${LABEL[o.status]}</span>
           <span class="hint">${esc(ago(o.created_at))}</span>
         </div>
       </header>
+      ${timeline ? `<p class="order-timeline">${timeline}</p>` : ''}
       ${o.guest_name ? `<p class="order-guest">Guest: <strong>${esc(o.guest_name)}</strong></p>` : ''}
       <ul class="order-items" role="list">
         ${items.map((i) => `
@@ -130,7 +138,7 @@ function card(o) {
         <span class="order-total">${o.item_count} items · <strong>${money(o.subtotal)}</strong> ${mail}</span>
         <span class="order-actions">
           ${['new', 'accepted'].includes(o.status) ? `<button type="button" class="btn btn-small btn-danger-quiet" data-status="cancelled" data-id="${o.id}">Cancel</button>` : ''}
-          ${NEXT[o.status] ? `<button type="button" class="btn btn-small btn-primary" data-status="${NEXT[o.status]}" data-id="${o.id}">${ACTION[o.status]}</button>` : ''}
+          ${NEXT[o.status] ? `<button type="button" class="btn btn-small btn-st btn-st-${NEXT[o.status]}" data-status="${NEXT[o.status]}" data-id="${o.id}">${DOT[NEXT[o.status]]} ${ACTION[o.status]}</button>` : ''}
         </span>
       </footer>
     </article>`;
@@ -143,8 +151,16 @@ async function onAction(ctx, e) {
   btn.disabled = true;
   try {
     await api.setOrderStatus(btn.dataset.id, btn.dataset.status);
-    toast(`Order ${LABEL[btn.dataset.status].toLowerCase()}`);
+    toast(`${DOT[btn.dataset.status]} Order ${LABEL[btn.dataset.status].toLowerCase()}`);
     refresh(ctx, false);
+    // E-mail the change in the background; tell staff only if it didn't go out.
+    api.notifyStatus(btn.dataset.id).then((r) => {
+      if (r?.sent) toast('Status e-mailed');
+      else if (r?.reason && (!/activation/i.test(r.reason) || !activationWarned)) {
+        if (/activation/i.test(r.reason)) activationWarned = true;
+        toast(`Status saved. E-mail not sent: ${r.reason}`, 'error');
+      }
+    }).catch(() => {});
   } catch (err) {
     errorToast(err);
     btn.disabled = false;

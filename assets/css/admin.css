@@ -462,20 +462,35 @@ body { background: #F3F6F4; }
   background: #fff; border: 1px solid var(--c-line); border-radius: 12px; padding: .85rem 1rem;
   display: grid; gap: .6rem; border-inline-start: 5px solid #C9D3CE;
 }
-.order-card.st-new { border-inline-start-color: #D97706; box-shadow: 0 4px 16px rgb(217 119 6 / .15); }
-.order-card.st-accepted { border-inline-start-color: #2563EB; }
-.order-card.st-ready { border-inline-start-color: var(--c-primary); }
-.order-card.st-served, .order-card.st-cancelled { opacity: .65; }
+.order-card.st-new { border-inline-start-color: #D97706; box-shadow: 0 4px 16px rgb(217 119 6 / .18); }
+.order-card.st-accepted { border-inline-start-color: #1D4ED8; }
+.order-card.st-ready { border-inline-start-color: #15803D; background: #F4FBF6; }
+.order-card.st-served { border-inline-start-color: #94A3B8; opacity: .7; }
+.order-card.st-cancelled { border-inline-start-color: #B91C1C; opacity: .7; }
 .order-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
 .order-no { font-size: 1.5rem; color: var(--c-primary-deep); margin-inline-end: .4rem; }
 .order-where { font-size: 1.1rem; font-weight: 700; }
 .order-meta { display: grid; justify-items: end; gap: .2rem; }
 .status { font-size: .72rem; font-weight: 700; padding: .15rem .55rem; border-radius: 999px; }
-.status-new { background: #FEF3C7; color: #92400E; }
-.status-accepted { background: #DBEAFE; color: #1E40AF; }
-.status-ready { background: var(--c-accent-soft); color: var(--c-primary-deep); }
-.status-served { background: #EEE; color: #555; }
-.status-cancelled { background: #FDECEA; color: var(--c-danger); }
+.status-new { background: #FEF3C7; color: #B45309; }
+.status-accepted { background: #DBEAFE; color: #1D4ED8; }
+.status-ready { background: #DCFCE7; color: #15803D; }
+.status-served { background: #E2E8F0; color: #475569; }
+.status-cancelled { background: #FEE2E2; color: #B91C1C; }
+.order-timeline { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; font-size: .78rem; margin: 0; }
+.tl { padding: .1rem .45rem; border-radius: 999px; font-weight: 600; }
+.tl small { font-weight: 400; opacity: .8; }
+.tl-new { background: #FEF3C7; color: #B45309; }
+.tl-accepted { background: #DBEAFE; color: #1D4ED8; }
+.tl-ready { background: #DCFCE7; color: #15803D; }
+.tl-served { background: #E2E8F0; color: #475569; }
+.tl-cancelled { background: #FEE2E2; color: #B91C1C; }
+.tl-arrow { color: #9AAAA2; }
+.btn-st { color: #fff; }
+.btn-st-accepted { background: #1D4ED8; }
+.btn-st-ready { background: #15803D; }
+.btn-st-served { background: #475569; }
+.btn-danger-quiet { color: #B91C1C; }
 .order-guest { font-size: .9rem; }
 .order-items { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
 .order-items li { display: grid; grid-template-columns: 2.2rem 1fr auto; gap: .4rem; align-items: start; }

@@ -23,6 +23,21 @@ Guests pay when the order is served; nothing is charged online.
 - **Save receipt** creates a PNG receipt. On phones it opens the share sheet (save to Photos, WhatsApp, …); on computers it downloads the file.
 - **Order again** re-adds a previous order's dishes to the cart. It is only offered when the guest opened the menu from a table or room QR code.
 
+## Order status
+
+| Status | Colour | Set by | Guest sees |
+|---|---|---|---|
+| 🟡 New | amber | automatic when sent | Received |
+| 🔵 Accepted | blue | staff: **Accept** | Being prepared |
+| 🟢 Ready | green | staff: **Mark ready** | Ready (pop-up + vibration) |
+| ⚪ Served | grey | staff: **Mark served** | Served |
+| 🔴 Cancelled | red | staff: **Cancel** | Cancelled |
+
+- The same colours are used in the admin Orders tab, on the guest's phone and in the e-mails.
+- Every change is stored with its time in `orders.status_history` (`09_order_status_history.sql`). It shows as a timeline on each order card and in the e-mails.
+- Each status change is e-mailed by the `order-status` Edge Function to the order address(es). The subject starts with the status colour, e.g. `🔵 ACCEPTED · Order #8 · Table 5 · Roshan Restaurant`. The function only acts for signed-in staff of that outlet.
+- The guest's phone checks its open orders every 20 seconds while the menu is open and updates the coloured banner at the top.
+
 ## E-mail notifications
 
 Order e-mails go to the address(es) in **Admin → Settings → Guest ordering**. There are two ways to send them; the function uses Resend when a key is stored, otherwise FormSubmit.

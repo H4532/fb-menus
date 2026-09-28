@@ -147,3 +147,18 @@ export const getOrderSettings = (outletId) =>
 
 export const saveOrderSettings = (outletId, emails) =>
   sb.from('outlet_order_settings').upsert({ outlet_id: outletId, notify_emails: emails }).then(must);
+
+/** E-mail a status change (Edge Function checks the caller is an admin of the outlet). */
+export async function notifyStatus(orderId) {
+  const session = (await sb.auth.getSession()).data.session;
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/order-status`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${session?.access_token || ''}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ order_id: orderId }),
+  });
+  return res.json().catch(() => ({ sent: false, reason: `HTTP ${res.status}` }));
+}

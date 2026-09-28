@@ -13,7 +13,8 @@ import { photoUrl } from '../platform.js';
 import { itemSummary, openItemSheet } from './item-sheet.js';
 import { locationFromUrl } from './cart.js';
 import { setupOrdering, orderContext, quickAdd, renderCartBar, whereLabel, showMyOrders } from './order-ui.js';
-import { savedOrders } from './my-orders.js';
+import { savedOrders, activeOrders, watchOrders, STATUS_DOT } from './my-orders.js';
+import { guestToast } from './order-ui.js';
 
 const state = {
   config: null,
@@ -48,7 +49,17 @@ function applyBrand(config) {
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
-window.addEventListener('fbm:orders', () => state.data && renderNotice());
+function startWatch() {
+  watchOrders(state.config.slug, (active, changed) => {
+    for (const o of changed) {
+      guestToast(`${STATUS_DOT[o.status] || ''} ${t('order_status_changed', { n: o.order_no, status: t(`status_${o.status}`) })}`);
+      if (o.status === 'ready' && navigator.vibrate) navigator.vibrate([120, 60, 120]);
+    }
+    if (changed.length || active.length) renderNotice();
+  });
+}
+window.addEventListener('fbm:orders', () => { if (state.data) { renderNotice(); startWatch(); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.data) startWatch(); });
 
 export default async function boot(config) {
   state.config = config;
@@ -77,6 +88,7 @@ export default async function boot(config) {
   }
 
   registerServiceWorker();
+  if (state.data) startWatch();
   // Refresh the "serving now" status every minute.
   setInterval(() => state.data && renderMenuTabs(), 60000);
 }
@@ -185,11 +197,18 @@ function renderNotice() {
       <strong>${esc(t('room_service'))}</strong> ${esc(t('room_service_call', { ext }))}
     </p>`);
   }
+  const live = state.config ? activeOrders(state.config.slug) : [];
+  for (const o of live.slice(0, 3)) {
+    notes.push(`<button type="button" class="notice notice-live st-${esc(o.status || 'new')}" data-my-orders>
+      <span class="live-dot-lg" aria-hidden="true">${STATUS_DOT[o.status || 'new']}</span>
+      <span><strong>#${esc(o.order_no)}</strong> · ${esc(t(`status_${o.status || 'new'}`))}</span>
+    </button>`);
+  }
   const mine = state.config ? savedOrders(state.config.slug).length : 0;
   if (mine) notes.push(`<button type="button" class="notice notice-myorders" data-my-orders>🧾 ${esc(t('my_orders'))} <span>${mine}</span></button>`);
   el.innerHTML = notes.join('');
   el.hidden = notes.length === 0;
-  el.querySelector('[data-my-orders]')?.addEventListener('click', showMyOrders);
+  el.querySelectorAll('[data-my-orders]').forEach((b) => b.addEventListener('click', showMyOrders));
 }
 
 function renderMenuTabs() {
