@@ -4,7 +4,7 @@
 // Supabase requests are never touched: menu data is cached by the app itself.
 // Bump BUILD whenever you deploy changed CSS/JS so phones pick up the new files.
 
-const BUILD = '2026-09-28-3';
+const BUILD = '2026-09-28-4';
 const CACHE = `fbm-${BUILD}`;
 
 self.addEventListener('install', () => self.skipWaiting());

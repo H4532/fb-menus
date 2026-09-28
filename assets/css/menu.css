@@ -550,3 +550,37 @@ body.has-cart #app-footer { padding-bottom: calc(5.5rem + env(safe-area-inset-bo
   pointer-events: none; white-space: nowrap;
 }
 #guest-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- My orders / receipt ----------------------------------------- */
+.notice-myorders {
+  display: flex; align-items: center; gap: .5rem; width: 100%; border: 1.5px solid var(--c-primary);
+  background: var(--c-paper); color: var(--c-primary-deep); font-weight: 600; text-align: start; cursor: pointer;
+}
+.notice-myorders span {
+  margin-inline-start: auto; background: var(--c-primary); color: #fff; border-radius: 999px;
+  min-width: 24px; height: 24px; display: grid; place-items: center; font-size: .8rem; padding: 0 .35rem;
+}
+.btn-ghost {
+  min-height: 44px; padding: 0 1rem; border-radius: 999px; border: 1.5px solid var(--c-primary);
+  background: var(--c-paper); color: var(--c-primary); font-weight: 600; font-size: var(--step--1);
+}
+.link-quiet { background: none; border: 0; color: var(--c-muted); text-decoration: underline; font-size: var(--step--1); justify-self: center; padding: .5rem; }
+.sent-actions { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
+.my-order { border: 1px solid var(--c-line); border-radius: 14px; padding: .8rem .9rem; display: grid; gap: .5rem; }
+.my-order header { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .6rem; }
+.my-order header strong { font-size: var(--step-2); color: var(--c-primary); }
+.my-order header span { font-size: var(--step--1); color: var(--c-muted); }
+.my-order ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .25rem; font-size: var(--step--1); }
+.my-order li { display: flex; justify-content: space-between; gap: .75rem; }
+.my-order li small { color: var(--c-muted); }
+.my-total { display: flex; justify-content: space-between; border-top: 1px solid var(--c-line); padding-top: .4rem; }
+.my-total strong { color: var(--c-primary); }
+.my-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.my-status {
+  margin-inline-start: auto; font-size: .75rem !important; font-weight: 700; padding: .15rem .6rem; border-radius: 999px;
+  background: var(--c-accent-soft); color: var(--c-primary-deep) !important;
+}
+.my-status.st-new { background: #FEF3C7; color: #92400E !important; }
+.my-status.st-accepted { background: #DBEAFE; color: #1E40AF !important; }
+.my-status.st-ready { background: var(--c-primary); color: #fff !important; }
+.my-status.st-cancelled { background: #FDECEA; color: var(--c-danger) !important; }

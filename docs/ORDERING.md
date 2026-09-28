@@ -15,6 +15,14 @@ Guests pay when the order is served; nothing is charged online.
 4. Anti-spam: at most 5 orders per table or room per 10 minutes, and 60 per outlet per 10 minutes.
 5. The guest gets an order number immediately. The e-mail is sent in the background through **Resend**. The result appears on the order card as “E-mailed” or “E-mail not sent” (hover to see the reason).
 
+## On the guest's phone
+
+- The unsent cart is kept on the phone for 4 hours.
+- Every order sent is saved under **My orders** (last 20, for 30 days). The list is reachable from the button at the top of the menu, even without scanning a QR code again.
+- Each saved order shows its live status as staff move it through the admin: Received → Being prepared → Ready → Served, or Cancelled. Status is looked up with `guest_order_status()` (`supabase/08_guest_order_status.sql`), which only answers for the order's secret id stored on that phone.
+- **Save receipt** creates a PNG receipt. On phones it opens the share sheet (save to Photos, WhatsApp, …); on computers it downloads the file.
+- **Order again** re-adds a previous order's dishes to the cart. It is only offered when the guest opened the menu from a table or room QR code.
+
 ## Turn it on
 
 1. **E-mail provider (one time):**

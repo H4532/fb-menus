@@ -5,6 +5,7 @@ import {
   initCart, onCartChange, addLine, setQty, removeLine, clearCart, resolvedLines, totals,
   unitPrice, submitOrder,
 } from './cart.js';
+import { saveOrder, snapshotFrom, saveReceipt, openMyOrders } from './my-orders.js';
 
 let S = null;               // shared guest state from app.js
 let onMenuStale = () => {};
@@ -141,8 +142,11 @@ async function send(dlg) {
       lang: lang(),
     });
     const sentLines = resolvedLines(S.data);
+    const snap = snapshotFrom(res, sentLines, S.data, S.location);
+    saveOrder(S.config.slug, snap);
     clearCart();
-    renderSent(dlg, res, sentLines);
+    renderSent(dlg, res, sentLines, snap);
+    window.dispatchEvent(new Event('fbm:orders'));
   } catch (err) {
     const key = `err_${err.code}`;
     const msg = t(key, { detail: err.detail || '' });
@@ -154,7 +158,7 @@ async function send(dlg) {
   }
 }
 
-function renderSent(dlg, res, lines) {
+function renderSent(dlg, res, lines, snap) {
   dlg.innerHTML = `
     <div class="sheet cart" role="document">
       <div class="sheet-body sent">
@@ -167,10 +171,36 @@ function renderSent(dlg, res, lines) {
         </ul>
         <div class="cart-sum"><span>${esc(t('total'))}</span><strong>${price(res.subtotal)}</strong></div>
         <p class="cart-pay muted">${esc(t('pay_note'))}</p>
+        <div class="sent-actions">
+          <button type="button" class="btn-ghost" data-receipt>🧾 ${esc(t('save_receipt'))}</button>
+          <button type="button" class="btn-ghost" data-my-orders>${esc(t('my_orders'))}</button>
+        </div>
         <button type="button" class="btn-send" data-close>${esc(t('back_to_menu'))}</button>
       </div>
     </div>`;
   $('[data-close]', dlg).addEventListener('click', () => dlg.close());
+  $('[data-receipt]', dlg).addEventListener('click', () => saveReceipt(snap, () => guestToast(t('receipt_saved'))));
+  $('[data-my-orders]', dlg).addEventListener('click', showMyOrders);
+}
+
+/** "My orders" — available whenever this phone has sent orders, even on the plain menu link. */
+export function showMyOrders() {
+  openMyOrders({
+    slug: S.config.slug,
+    dialog: $('#cart'),
+    orderAgain: S.orderingOn ? orderAgain : null,
+  });
+}
+
+function orderAgain(order) {
+  let added = 0;
+  for (const l of order.lines) {
+    const item = S.data.items[l.item_id];
+    if (!item || !item.available) continue;
+    addLine(l.item_id, l.option_ids, l.qty, l.note);
+    added += 1;
+  }
+  if (added) openCart(); else guestToast(t('err_ITEM_UNAVAILABLE', { detail: tr(order.lines[0]?.name) }));
 }
 
 // ---------------------------------------------------------------------------

@@ -12,7 +12,8 @@ import { readCached, fetchMenu } from '../core/menu-data.js';
 import { photoUrl } from '../platform.js';
 import { itemSummary, openItemSheet } from './item-sheet.js';
 import { locationFromUrl } from './cart.js';
-import { setupOrdering, orderContext, quickAdd, renderCartBar, whereLabel } from './order-ui.js';
+import { setupOrdering, orderContext, quickAdd, renderCartBar, whereLabel, showMyOrders } from './order-ui.js';
+import { savedOrders } from './my-orders.js';
 
 const state = {
   config: null,
@@ -47,6 +48,8 @@ function applyBrand(config) {
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
+window.addEventListener('fbm:orders', () => state.data && renderNotice());
+
 export default async function boot(config) {
   state.config = config;
   applyBrand(config);
@@ -182,8 +185,11 @@ function renderNotice() {
       <strong>${esc(t('room_service'))}</strong> ${esc(t('room_service_call', { ext }))}
     </p>`);
   }
+  const mine = state.config ? savedOrders(state.config.slug).length : 0;
+  if (mine) notes.push(`<button type="button" class="notice notice-myorders" data-my-orders>🧾 ${esc(t('my_orders'))} <span>${mine}</span></button>`);
   el.innerHTML = notes.join('');
   el.hidden = notes.length === 0;
+  el.querySelector('[data-my-orders]')?.addEventListener('click', showMyOrders);
 }
 
 function renderMenuTabs() {
