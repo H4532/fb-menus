@@ -142,7 +142,7 @@ Guests get changes the next time they open or refresh the menu.
 
 ## 8. Updating the code
 
-After you change any CSS or JS file:
+After you change any CSS or JS file (optional since pages and code are fetched network-first; it forces old offline copies to be dropped):
 
 1. Open `sw.js` and change the `BUILD` value, e.g. `'2026-10-02-1'`.
 2. Commit and push.

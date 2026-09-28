@@ -16,6 +16,16 @@
 <body>
   <div id="app"><main class="auth"><span class="spinner"></span></main></div>
   <div id="toasts" aria-live="polite"></div>
-  <script type="module" src="../assets/js/admin/app.js"></script>
+  <script type="module">
+    // The admin is always live: drop copies saved by the guest-menu offline helper
+    // (older versions also cached admin code), ask the helper to update, then start.
+    try {
+      if ('caches' in window) {
+        for (const k of await caches.keys()) if (k.startsWith('fbm-')) await caches.delete(k);
+      }
+      (await navigator.serviceWorker?.getRegistration())?.update();
+    } catch { /* not critical */ }
+    await import('../assets/js/admin/app.js');
+  </script>
 </body>
 </html>
