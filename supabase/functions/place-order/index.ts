@@ -2,7 +2,7 @@
 // Guest phone → POST {slug, location_type, location, name?, note?, lang?, items:[…]}
 // 1. public.place_order() validates everything and recomputes prices (service role).
 // 2. Responds to the guest immediately with the order number.
-// 3. Sends the notification e-mail in the background (Resend) and records the result.
+// 3. Sends the notification e-mail in the background (Resend if configured, else FormSubmit) and records the result.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const CORS = {
@@ -54,7 +54,6 @@ async function notify(orderId: string) {
   if (error || !n) { console.error('order_notification failed', error); return; }
 
   const record = (fields: Record<string, unknown>) => admin.from('orders').update(fields).eq('id', orderId);
-  if (!n.resend_api_key) { await record({ notify_error: 'E-mail not configured (no Resend API key).' }); return; }
   if (!n.notify_emails?.length) { await record({ notify_error: 'No notification e-mail set in admin Settings.' }); return; }
 
   const o = n.order;
@@ -103,20 +102,55 @@ async function notify(orderId: string) {
     ...n.items.map((i: any) => `${i.qty}x ${en(i.name)}${(i.options || []).map((x: any) => ` / ${en(x.option)}`).join('')}${i.note ? ` — note: ${i.note}` : ''}  ${money(i.line_total)}`),
     o.guest_note ? `Order note: ${o.guest_note}` : '', `Total: ${cur} ${money(o.subtotal)}`, n.admin_url || ''].filter(Boolean).join('\n');
 
+  const subject = `Order #${o.order_no} - ${where} - ${en(n.outlet.name)}`;
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    if (n.resend_api_key) {
+      // Preferred: Resend (HTML e-mail, needs an API key in private.app_settings).
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${n.resend_api_key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: n.mail_from, to: n.notify_emails, subject: `🛎 ${subject}`, html, text }),
+      });
+      if (res.ok) await record({ notified_at: new Date().toISOString(), notify_error: null });
+      else await record({ notify_error: `Resend ${res.status}: ${(await res.text()).slice(0, 300)}` });
+      return;
+    }
+
+    // Fallback: FormSubmit relay (no account; one-time activation link sent to the address).
+    const [to, ...cc] = n.notify_emails;
+    const items = n.items.map((i: any) => [
+      `${i.qty} x ${en(i.name)}${ar(i.name) ? ` (${ar(i.name)})` : ''} = ${money(i.line_total)}`,
+      ...(i.options || []).map((x: any) => `    - ${en(x.group)}: ${en(x.option)}`),
+      i.note ? `    * Note: ${i.note}` : '',
+    ].filter(Boolean).join('\n')).join('\n');
+    const fields: Record<string, string> = {
+      _subject: subject,
+      _template: 'table',
+      _captcha: 'false',
+      'Order': `#${o.order_no}`,
+      'Where': `${where}  |  ${whereAr}`,
+      'Time': time,
+      'Items': items,
+      'Total': `${cur} ${money(o.subtotal)} (${o.item_count} items, VAT incl.)`,
+    };
+    if (o.guest_name) fields['Guest'] = o.guest_name;
+    if (o.guest_note) fields['Order note'] = o.guest_note;
+    if (n.admin_url) fields['Open orders'] = n.admin_url;
+    if (cc.length) fields._cc = cc.join(',');
+    const site = (n.admin_url || 'https://h4532.github.io/fb-menus/admin/').replace(/admin\/.*$/, '');
+    const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(to)}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${n.resend_api_key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: n.mail_from,
-        to: n.notify_emails,
-        subject: `🛎 Order #${o.order_no} — ${where} — ${en(n.outlet.name)}`,
-        html,
-        text,
-      }),
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', Origin: new URL(site).origin, Referer: `${site}${n.outlet.slug}/` },
+      body: JSON.stringify(fields),
     });
-    if (res.ok) await record({ notified_at: new Date().toISOString(), notify_error: null });
-    else await record({ notify_error: `Resend ${res.status}: ${(await res.text()).slice(0, 300)}` });
+    const body = await res.json().catch(() => ({} as any));
+    if (res.ok && String(body.success) === 'true') {
+      await record({ notified_at: new Date().toISOString(), notify_error: null });
+    } else if (/activat/i.test(body.message || '')) {
+      await record({ notify_error: `Waiting for activation: open the FormSubmit e-mail sent to ${to} and click "Activate Form".` });
+    } else {
+      await record({ notify_error: `FormSubmit ${res.status}: ${String(body.message || '').slice(0, 250)}` });
+    }
   } catch (e) {
     await record({ notify_error: `E-mail failed: ${String(e).slice(0, 300)}` });
   }

@@ -23,22 +23,34 @@ Guests pay when the order is served; nothing is charged online.
 - **Save receipt** creates a PNG receipt. On phones it opens the share sheet (save to Photos, WhatsApp, …); on computers it downloads the file.
 - **Order again** re-adds a previous order's dishes to the cart. It is only offered when the guest opened the menu from a table or room QR code.
 
-## Turn it on
+## E-mail notifications
 
-1. **E-mail provider (one time):**
-   1. Create a free account at <https://resend.com>, then open **API Keys → Create API key** (“Sending access” is enough).
-   2. Store the key in the database from the Supabase SQL Editor:
-      ```sql
-      insert into private.app_settings (key, value) values ('resend_api_key', 're_…')
-      on conflict (key) do update set value = excluded.value;
-      ```
-   3. Until you verify a domain in Resend, mail is sent from `onboarding@resend.dev` and **only to the e-mail address of your Resend account**.
-   4. After verifying a domain (e.g. `hijeddah.com`), set a sender:
-      ```sql
-      insert into private.app_settings (key, value) values ('mail_from', 'Roshan Orders <orders@hijeddah.com>')
-      on conflict (key) do update set value = excluded.value;
-      ```
-2. **Admin → Settings → Guest ordering:** switch on “Take orders…” and enter the e-mail address(es), up to 5.
+Order e-mails go to the address(es) in **Admin → Settings → Guest ordering**. There are two ways to send them; the function uses Resend when a key is stored, otherwise FormSubmit.
+
+### A. FormSubmit (active now; no account needed)
+
+- The first send to a new address makes FormSubmit e-mail an **“Activate Form”** link to that address. Click it once.
+- Every order is then e-mailed as a simple table: order, table/room, time, items with choices and notes, total, and a link to the Orders tab.
+- Until the link is clicked, order cards in the admin show *“E-mail not sent — Waiting for activation”*. Orders still appear in the Orders tab.
+- Each new address added in Settings needs its own one-time activation.
+- Check the spam/junk folder for the activation e-mail. Corporate filters may hold it; if so, ask IT to allow `formsubmit.co`.
+- FormSubmit is a free third-party relay: order details (dishes, table, guest first name if given) pass through it. No payment data is involved.
+
+### B. Resend (branded HTML e-mail, your own sender address)
+
+1. Create a free account at <https://resend.com>, then open **API Keys → Create API key**.
+2. Store the key in the database:
+   ```sql
+   insert into private.app_settings (key, value) values ('resend_api_key', 're_…')
+   on conflict (key) do update set value = excluded.value;
+   ```
+3. Until a domain is verified in Resend, mail can only go to the Resend account's own address. After verifying a domain, set a sender:
+   ```sql
+   insert into private.app_settings (key, value) values ('mail_from', 'Roshan Orders <orders@your-domain.com>')
+   on conflict (key) do update set value = excluded.value;
+   ```
+
+As soon as a Resend key exists, it is used instead of FormSubmit.
 
 ## Notes
 
