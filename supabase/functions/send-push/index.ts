@@ -2,6 +2,8 @@
 //  • {order_id}          called by the database when a new order is complete;
 //                        sends once per order (orders.pushed_at guards duplicates).
 //  • {action:'test', outlet_id}  signed-in user: test notification to their own devices.
+//  • {action:'remind'}  called every 30 s by pg_cron: repeats the push for orders still "new"
+//                       (interval and maximum per outlet in outlet_order_settings).
 // Recipients: devices of users with the Orders right on the order's outlet.
 // Every payload carries `badge` = open orders (new/accepted/ready) for the app icon.
 import webpush from 'npm:web-push@3.6.7';
@@ -95,6 +97,32 @@ Deno.serve(async (req) => {
         badge: await openCount(outletId),
       });
       return json(r);
+    }
+
+    // -------------------------------------------------------------- reminders
+    if (b.action === 'remind') {
+      const { data: due, error } = await admin.rpc('claim_order_reminders');
+      if (error) throw error;
+      let sent = 0;
+      for (const d of due || []) {
+        const { data: n } = await admin.rpc('order_notification', { p_order_id: d.order_id });
+        if (!n) continue;
+        const o = n.order;
+        const where = o.location_type === 'room' ? `Room ${o.location}` : `Table ${o.location}`;
+        const mins = Math.max(1, Math.round(d.waiting_seconds / 60));
+        const items = n.items.map((i: any) => `${i.qty}× ${en(i.name)}`).join(', ');
+        const subs = await teamDevices(d.outlet_id);
+        if (!subs.length) continue;
+        const r = await sendTo(subs, {
+          title: `⏰ Not accepted yet: #${o.order_no} · ${where}`,
+          body: `Waiting ${mins} min — ${items}`,
+          url: './#orders',
+          tag: `order-${o.id}-r${d.remind_count}`,       // new tag each time so the phone alerts again
+          badge: await openCount(d.outlet_id),
+        });
+        sent += r.sent;
+      }
+      return json({ reminders: (due || []).length, sent });
     }
 
     // ------------------------------------------------------------- new order

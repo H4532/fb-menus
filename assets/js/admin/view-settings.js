@@ -68,6 +68,20 @@ export function renderSettings(ctx) {
         <h2 class="block-title">Guest ordering</h2>
         ${toggle('ordering_enabled', 'Take orders from table and room QR codes', Boolean(outlet.ordering?.enabled), 'Guests who scan a table or room code can build an order and send it. Orders appear in the Orders tab.')}
         ${field('E-mail new orders to', '<input name="notify_emails" data-notify inputmode="email" placeholder="you@hotel.com, chef@hotel.com" autocomplete="off">', 'Separate several addresses with commas (up to 5).')}
+        <div class="row-fields">
+          ${field('Remind the team while an order is not accepted', `
+            <select name="remind_seconds" data-remind>
+              <option value="0">Off</option>
+              <option value="30">Every 30 seconds</option>
+              <option value="60">Every minute</option>
+              <option value="120">Every 2 minutes</option>
+              <option value="300">Every 5 minutes</option>
+            </select>`, 'Push notification with sound on every team phone, even when the app is closed.')}
+          ${field('Stop after', `
+            <select name="remind_max" data-remind-max>
+              ${[3, 5, 10, 15, 20, 30].map((n) => `<option value="${n}">${n} reminders</option>`).join('')}
+            </select>`, 'Reminders stop as soon as someone presses Accept.')}
+        </div>
       </section>
 
       <section class="block">
@@ -94,6 +108,10 @@ export function renderSettings(ctx) {
     savedEmails = row?.notify_emails || [];
     const input = $('[data-notify]', root);
     if (input) input.value = savedEmails.join(', ');
+    const rs = $('[data-remind]', root);
+    const rm = $('[data-remind-max]', root);
+    if (rs) rs.value = String(row?.remind_seconds ?? 30);
+    if (rm) rm.value = String(row?.remind_max ?? 10);
   }).catch(() => {});
   $('[data-add-hours]', root).addEventListener('click', () => $('[data-hours-list]', root).insertAdjacentHTML('beforeend', hoursRow()));
   root.addEventListener('click', (e) => {
@@ -132,10 +150,11 @@ export function renderSettings(ctx) {
       if (orderingOn && !emails.length) throw new Error('Add at least one e-mail address to receive orders.');
 
       btn.disabled = true;
-      if (emails.join(',') !== savedEmails.join(',')) {
-        await api.saveOrderSettings(outlet.id, emails);
-        savedEmails = emails;
-      }
+      await api.saveOrderSettings(outlet.id, emails, {
+        remind_seconds: Number(form.elements.remind_seconds.value),
+        remind_max: Number(form.elements.remind_max.value),
+      });
+      savedEmails = emails;
       const patch = {
         ordering: { ...(outlet.ordering || {}), enabled: orderingOn },
         name,

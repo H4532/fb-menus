@@ -46,10 +46,18 @@ Guests pay when the order is served; nothing is charged online.
 - **How it works:** a new order runs the `orders_push_new` trigger. It calls the `send-push` Edge Function, which delivers through Apple/Google/Mozilla push services using the VAPID keys in `private.app_settings`. Devices that were removed or uninstalled are cleaned up automatically.
 - If notifications stop on an iPhone, check **Settings → Notifications → Menu Admin** and Focus modes.
 
+### Reminders while an order isn't accepted (works with the app closed)
+
+- **Settings → Guest ordering → Remind the team…:** Off, every 30 s, 1 min, 2 min or 5 min. **Stop after:** 3–30 reminders. Roshan is set to every 30 s, 10 times, which is 5 minutes.
+- Each reminder is a push notification (“⏰ Not accepted yet: #15 · Table 5 — Waiting 2 min”) with the phone's notification sound. It reaches every team device with the Orders right, even when the app is closed or the phone is locked.
+- Reminders stop as soon as anyone presses **Accept** (or Cancel).
+- **How it works:** pg_cron runs every 30 s and calls `send-push` with `{"action":"remind"}`. `claim_order_reminders()` picks the orders that are due (`13_order_reminders.sql`).
+- The in-app “Repeat until accepted” sound only works while the app is on screen, because phones freeze web apps in the background. The server reminders cover the rest.
+
 ### App-icon number and alert sounds
 
 - **Icon badge:** the installed app's icon shows the number of **open orders** (New + Accepted + Ready, last 24 h). It is set by each push notification (even with the app closed) and refreshed whenever the app is opened or brought back to the front. It needs the app installed on the home screen and notifications allowed (iOS 16.4+; Chrome/Edge on Android and desktop). If someone else marks an order Served, your icon updates at your next notification or when you open the app; web apps can't update silently in the background.
-- **Alert sound (per device)** in **Orders → Alert sound on this device**: Chime, Service bell, Kitchen ding, Double beep, Urgent alarm or Silent, plus volume, **Preview**, and **Repeat until accepted** (replays every 15 s while any order is still New). Settings are stored on that device only.
+- **Alert sound (per device)** in **Orders → Alert sound on this device**: Chime, Service bell, Kitchen ding, Double beep, Urgent alarm or Silent, plus volume, **Preview**, and **Repeat until accepted** (replays every 15 s while any order is still New, **only while the app is on screen**). Settings are stored on that device only.
 - These sounds play while the app is **open**. Notifications shown while the app is **closed** use the phone's own notification sound: iPhone doesn't let web apps change it; on Android it is set under Settings → Notifications → the app.
 
 ## Order status

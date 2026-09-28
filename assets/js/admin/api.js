@@ -145,8 +145,8 @@ export const setOrderStatus = (id, status) => sb.from('orders').update({ status 
 export const getOrderSettings = (outletId) =>
   sb.from('outlet_order_settings').select('*').eq('outlet_id', outletId).maybeSingle().then(must);
 
-export const saveOrderSettings = (outletId, emails) =>
-  sb.from('outlet_order_settings').upsert({ outlet_id: outletId, notify_emails: emails }).then(must);
+export const saveOrderSettings = (outletId, emails, extra = {}) =>
+  sb.from('outlet_order_settings').upsert({ outlet_id: outletId, notify_emails: emails, ...extra }).then(must);
 
 /** E-mail a status change (Edge Function checks the caller is an admin of the outlet). */
 export async function notifyStatus(orderId) {

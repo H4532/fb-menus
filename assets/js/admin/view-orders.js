@@ -272,7 +272,7 @@ function renderSoundBox() {
       <label class="field"><span class="field-label">Volume</span>
         <input type="range" min="0.1" max="1" step="0.1" value="${st.volume}" data-snd="volume">
       </label>
-      <label class="switch-row"><span><span class="field-label">Repeat until accepted</span><span class="hint">Plays again every 15 s while an order is still New</span></span>
+      <label class="switch-row"><span><span class="field-label">Repeat until accepted</span><span class="hint">Plays again every 15 s while an order is still New (only while the app is on screen — for a closed app use Settings → Remind the team)</span></span>
         <input type="checkbox" class="switch" data-snd="repeat" ${st.repeat ? 'checked' : ''}>
       </label>
       <button type="button" class="btn btn-quiet btn-small" data-snd-preview>▶ Preview</button>
