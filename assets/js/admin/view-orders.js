@@ -3,6 +3,7 @@ import { esc } from '../core/i18n.js';
 import * as api from './api.js';
 import { $, $$, toast, errorToast, money } from './ui.js';
 import * as push from './push.js';
+import * as alerts from './alerts.js';
 
 const POLL_MS = 15000;
 const NEXT = { new: 'accepted', accepted: 'ready', ready: 'served' };
@@ -16,7 +17,6 @@ const ACTION = { new: 'Accept', accepted: 'Mark ready', ready: 'Mark served' };
 let timer = null;
 let seen = new Set();
 let filter = 'active';
-let audioCtx = null;
 
 const en = (o) => o?.en || o?.ar || Object.values(o || {})[0] || '';
 const ar = (o) => o?.ar || '';
@@ -26,17 +26,6 @@ function ago(iso) {
   if (m < 1) return 'just now';
   if (m < 60) return `${m} min ago`;
   return clock(iso);
-}
-
-function beep() {
-  try {
-    audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.connect(g); g.connect(audioCtx.destination);
-    o.frequency.value = 880; g.gain.value = 0.15;
-    o.start(); o.stop(audioCtx.currentTime + 0.25);
-  } catch { /* audio not allowed yet */ }
 }
 
 export function renderOrders(ctx) {
@@ -54,7 +43,8 @@ export function renderOrders(ctx) {
     </div>
     ${enabled ? '' : `<p class="notice">Guests can’t order yet. Turn on <strong>Take orders</strong> in Settings.</p>`}
     <div class="push-box" id="push-box"></div>
-    <p class="hint">Updates every 15 seconds. New orders beep and show at the top.</p>
+    <details class="sound-box" id="sound-box"></details>
+    <p class="hint">Updates every 15 seconds. New orders play your alert sound and show at the top.</p>
     <div id="orders-list"><div class="loading"><span class="spinner"></span></div></div>`;
 
   $$('[data-filter]', root).forEach((b) => b.addEventListener('click', () => {
@@ -65,6 +55,7 @@ export function renderOrders(ctx) {
   root.addEventListener('click', (e) => onAction(ctx, e));
 
   renderPushBox(ctx);
+  renderSoundBox();
   clearInterval(timer);
   seen = new Set();
   refresh(ctx, true);
@@ -85,13 +76,15 @@ async function refresh(ctx, first) {
     return;
   }
   const fresh = orders.filter((o) => !seen.has(o.id));
-  if (!first && fresh.some((o) => o.status === 'new')) {
-    beep();
-    toast(`New order #${fresh[0].order_no}`);
-  }
+  const hasFreshNew = !first && fresh.some((o) => o.status === 'new');
+  const waiting = orders.filter((o) => o.status === 'new').length;
+  if (hasFreshNew) toast(`New order #${fresh[0].order_no}`);
+  // Sound: every new order, and (if "repeat" is on) every refresh while any order is still New.
+  if (hasFreshNew || (!first && waiting && alerts.getSettings().repeat)) alerts.play();
   orders.forEach((o) => seen.add(o.id));
 
   const open = orders.filter((o) => ['new', 'accepted', 'ready'].includes(o.status));
+  alerts.setBadge(open.length);
   const newCount = orders.filter((o) => o.status === 'new').length;
   document.title = `${newCount ? `(${newCount}) ` : ''}${document.title.replace(/^\(\d+\) /, '')}`;
   const list = filter === 'active' ? open : orders;
@@ -259,5 +252,40 @@ async function renderPushBox(ctx) {
     } catch (err) { errorToast(err); }
     b.disabled = false;
     renderPushBox(ctx);
+  renderSoundBox();
   };
+}
+
+// ---------------------------------------------------------------------------
+// Alert sound for this device
+// ---------------------------------------------------------------------------
+function renderSoundBox() {
+  const box = $('#sound-box');
+  if (!box) return;
+  const st = alerts.getSettings();
+  box.innerHTML = `
+    <summary>🔊 Alert sound on this device: <strong>${esc(alerts.SOUNDS[st.sound])}</strong>${st.repeat && st.sound !== 'none' ? ' · repeats until accepted' : ''}</summary>
+    <div class="sound-grid">
+      <label class="field"><span class="field-label">Sound</span>
+        <select data-snd="sound">${Object.entries(alerts.SOUNDS).map(([k, l]) => `<option value="${k}" ${k === st.sound ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      </label>
+      <label class="field"><span class="field-label">Volume</span>
+        <input type="range" min="0.1" max="1" step="0.1" value="${st.volume}" data-snd="volume">
+      </label>
+      <label class="switch-row"><span><span class="field-label">Repeat until accepted</span><span class="hint">Plays again every 15 s while an order is still New</span></span>
+        <input type="checkbox" class="switch" data-snd="repeat" ${st.repeat ? 'checked' : ''}>
+      </label>
+      <button type="button" class="btn btn-quiet btn-small" data-snd-preview>▶ Preview</button>
+    </div>
+    <p class="hint">Plays while the app is open (keep it open on the tablet at the pass). When the app is closed, notifications use the phone’s own notification sound: on iPhone that can’t be changed for web apps; on Android choose it in Settings → Notifications.</p>`;
+  box.onchange = (e) => {
+    const el = e.target.closest('[data-snd]');
+    if (!el) return;
+    const s2 = alerts.getSettings();
+    s2[el.dataset.snd] = el.type === 'checkbox' ? el.checked : (el.type === 'range' ? Number(el.value) : el.value);
+    alerts.saveSettings(s2);
+    if (el.dataset.snd !== 'repeat') alerts.play();
+    box.querySelector('summary strong').textContent = alerts.SOUNDS[s2.sound];
+  };
+  box.onclick = (e) => { if (e.target.closest('[data-snd-preview]')) alerts.play(); };
 }

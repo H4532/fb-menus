@@ -3,6 +3,7 @@
 //                        sends once per order (orders.pushed_at guards duplicates).
 //  • {action:'test', outlet_id}  signed-in user: test notification to their own devices.
 // Recipients: devices of users with the Orders right on the order's outlet.
+// Every payload carries `badge` = open orders (new/accepted/ready) for the app icon.
 import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -28,6 +29,13 @@ async function setup() {
   if (error || !cfg?.vapid_private_key) throw new Error('Push keys missing');
   webpush.setVapidDetails(cfg.vapid_subject, cfg.vapid_public_key, cfg.vapid_private_key);
   configured = true;
+}
+
+async function openCount(outletId: string) {
+  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const { count } = await admin.from('orders').select('id', { count: 'exact', head: true })
+    .eq('outlet_id', outletId).in('status', ['new', 'accepted', 'ready']).gte('created_at', since);
+  return count || 0;
 }
 
 async function sendTo(subs: any[], payload: Record<string, unknown>) {
@@ -76,13 +84,15 @@ Deno.serve(async (req) => {
       const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
       const { data: who } = await admin.auth.getUser(token);
       if (!who?.user) return json({ error: 'Please sign in again.' }, 401);
+      const outletId = String(b.outlet_id || '');
       const { data: subs } = await admin.from('push_subscriptions').select('*')
-        .eq('user_id', who.user.id).eq('outlet_id', String(b.outlet_id || ''));
+        .eq('user_id', who.user.id).eq('outlet_id', outletId);
       if (!subs?.length) return json({ error: 'This device is not registered for notifications yet.' }, 400);
       const r = await sendTo(subs, {
         title: '🔔 Test notification',
         body: 'Order notifications are working on this device.',
         url: './#orders', tag: 'fbm-test',
+        badge: await openCount(outletId),
       });
       return json(r);
     }
@@ -108,6 +118,7 @@ Deno.serve(async (req) => {
       body: `${items}${o.guest_note ? ` — 📝 ${o.guest_note}` : ''} · ${n.outlet.currency} ${Number(o.subtotal).toFixed(2)}`,
       url: './#orders',
       tag: `order-${o.id}`,
+      badge: await openCount(claimed.outlet_id),
     });
     return json(r);
   } catch (e) {

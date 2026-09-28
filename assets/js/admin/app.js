@@ -234,6 +234,7 @@ async function reload({ quiet = false } = {}) {
     const entry = ctx.outlets.find((o) => o.outlet.id === all.outlet.id);
     if (entry) entry.outlet = all.outlet;
     ctx.data = all;
+    refreshBadge();
     ctx.langs = sortLangs(all.outlet.languages, all.outlet.default_language);
     if (!quiet) renderView();
   } catch (err) {
@@ -280,6 +281,16 @@ async function changePassword() {
     },
   });
 }
+
+// App-icon badge = open orders, refreshed on start and whenever the app comes back.
+async function refreshBadge() {
+  if (!ctx.outlet || !(ctx.perms || []).includes('orders')) return;
+  try {
+    const n = await api.openOrderCount(ctx.outlet.id);
+    (await import('./alerts.js')).setBadge(n);
+  } catch { /* offline */ }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshBadge(); });
 
 // Background worker for notifications; tapping a notification opens Orders.
 import('./push.js').then((p) => p.registration()).catch(() => {});

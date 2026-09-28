@@ -9,7 +9,11 @@ self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = { title: 'New order', body: event.data?.text() || '' }; }
   const title = data.title || 'New order';
-  event.waitUntil(self.registration.showNotification(title, {
+  // Number of open orders on the app icon (iOS 16.4+ home-screen apps, Chrome/Edge).
+  const badge = Number.isFinite(data.badge) && self.navigator.setAppBadge
+    ? (data.badge > 0 ? self.navigator.setAppBadge(data.badge) : self.navigator.clearAppBadge()).catch(() => {})
+    : Promise.resolve();
+  event.waitUntil(Promise.all([badge, self.registration.showNotification(title, {
     body: data.body || '',
     icon: 'icon-192.png',
     badge: 'icon-192.png',
@@ -17,7 +21,7 @@ self.addEventListener('push', (event) => {
     renotify: true,
     requireInteraction: true,
     data: { url: new URL(data.url || './#orders', self.registration.scope).href },
-  }));
+  })]));
 });
 
 self.addEventListener('notificationclick', (event) => {

@@ -46,6 +46,12 @@ Guests pay when the order is served; nothing is charged online.
 - **How it works:** a new order runs the `orders_push_new` trigger. It calls the `send-push` Edge Function, which delivers through Apple/Google/Mozilla push services using the VAPID keys in `private.app_settings`. Devices that were removed or uninstalled are cleaned up automatically.
 - If notifications stop on an iPhone, check **Settings → Notifications → Menu Admin** and Focus modes.
 
+### App-icon number and alert sounds
+
+- **Icon badge:** the installed app's icon shows the number of **open orders** (New + Accepted + Ready, last 24 h). It is set by each push notification (even with the app closed) and refreshed whenever the app is opened or brought back to the front. It needs the app installed on the home screen and notifications allowed (iOS 16.4+; Chrome/Edge on Android and desktop). If someone else marks an order Served, your icon updates at your next notification or when you open the app; web apps can't update silently in the background.
+- **Alert sound (per device)** in **Orders → Alert sound on this device**: Chime, Service bell, Kitchen ding, Double beep, Urgent alarm or Silent, plus volume, **Preview**, and **Repeat until accepted** (replays every 15 s while any order is still New). Settings are stored on that device only.
+- These sounds play while the app is **open**. Notifications shown while the app is **closed** use the phone's own notification sound: iPhone doesn't let web apps change it; on Android it is set under Settings → Notifications → the app.
+
 ## Order status
 
 | Status | Colour | Set by | Guest sees |

@@ -181,3 +181,12 @@ export async function manageUsers(action, outletId, body = {}) {
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }
+
+/** Open orders (new / accepted / ready) in the last 24 h — for the app-icon badge. */
+export async function openOrderCount(outletId) {
+  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const { count, error } = await sb.from('orders').select('id', { count: 'exact', head: true })
+    .eq('outlet_id', outletId).in('status', ['new', 'accepted', 'ready']).gte('created_at', since);
+  if (error) throw error;
+  return count || 0;
+}

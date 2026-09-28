@@ -606,3 +606,9 @@ body { background: #F3F6F4; }
 .push-on { background: #DCFCE7; color: #14532D; }
 .push-denied, .push-unsupported { background: #F1F5F9; color: #475569; }
 .push-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+
+/* Alert sound settings */
+.sound-box { background: #fff; border: 1px solid var(--c-line); border-radius: 12px; padding: .6rem .9rem; margin-bottom: .6rem; }
+.sound-box summary { cursor: pointer; font-size: .9rem; padding: .2rem 0; }
+.sound-grid { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); align-items: end; margin: .6rem 0; }
+.sound-grid input[type=range] { accent-color: var(--c-primary); min-height: 44px; }
