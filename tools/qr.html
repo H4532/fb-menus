@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QR codes · FB Menus</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <script src="../assets/vendor/qrcode-generator-1.4.4.js"></script>
+  <style>
+    body { background: #F3F6F4; }
+    .panel {
+      max-width: 60rem; margin: 1.5rem auto; background: #fff; border-radius: 14px;
+      border: 1px solid var(--c-line); padding: 1.25rem; display: grid; gap: 1rem;
+    }
+    .panel h1 { font-size: 1.4rem; color: var(--c-primary-deep); }
+    .grid { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+    label { display: grid; gap: .25rem; font-size: .85rem; font-weight: 600; }
+    input, select {
+      min-height: 44px; border: 1px solid #C9D3CE; border-radius: 8px; padding: .45rem .6rem;
+      font-weight: 400; background: #fff;
+    }
+    .hint { font-size: .78rem; color: var(--c-muted); font-weight: 400; }
+    .actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+    .btn {
+      min-height: 44px; padding: .5rem 1.2rem; border-radius: 10px; border: 1.5px solid var(--c-primary);
+      background: var(--c-primary); color: #fff; font-weight: 600;
+    }
+    .btn-quiet { background: #fff; color: var(--c-primary); }
+    .test-link { font-size: .85rem; word-break: break-all; }
+
+    /* Printable cards */
+    .sheet {
+      max-width: 60rem; margin: 0 auto 3rem; display: grid; gap: 6mm;
+      grid-template-columns: repeat(auto-fill, minmax(62mm, 1fr));
+    }
+    .card {
+      background: #fff; border: 1px solid #D5DED9; border-radius: 4mm; padding: 6mm 5mm 5mm;
+      display: grid; justify-items: center; gap: 2.5mm; text-align: center;
+      break-inside: avoid; page-break-inside: avoid;
+      color: var(--c-primary-deep);
+    }
+    .card-name { font-size: 15pt; font-weight: 700; line-height: 1.15; }
+    .card-name .ar { display: block; }
+    .card svg { width: 44mm; height: 44mm; display: block; }
+    .card-label {
+      font-weight: 700; font-size: 13pt; background: var(--c-primary); color: #fff;
+      padding: 1mm 4mm; border-radius: 999px;
+    }
+    .card-scan { font-size: 9pt; line-height: 1.35; color: #3C5046; }
+    .card-foot { font-size: 7.5pt; color: #6B7D73; border-top: 1px solid #E1E8E4; padding-top: 2mm; width: 100%; }
+
+    @page { size: A4; margin: 10mm; }
+    @media print {
+      body { background: #fff; }
+      .panel { display: none; }
+      .sheet { max-width: none; margin: 0; grid-template-columns: repeat(3, 1fr); gap: 5mm; }
+      .card { border-color: #BBB; }
+    }
+  </style>
+</head>
+<body>
+  <section class="panel">
+    <h1>QR codes for tables and rooms</h1>
+    <p class="hint">Fill in the details, check the test link opens the right menu on your phone, then print (A4, 9 cards per page). Cut along the card edges.</p>
+
+    <div class="grid">
+      <label>Outlet folder (slug)
+        <input id="slug" value="roshan" autocomplete="off">
+        <span class="hint">The folder name in the site, e.g. roshan, moood</span>
+      </label>
+      <label>Name on the card (English)
+        <input id="name-en" value="Roshan Restaurant">
+      </label>
+      <label>Name on the card (Arabic)
+        <input id="name-ar" value="مطعم روشن" dir="rtl" lang="ar">
+      </label>
+      <label>Hotel line at the bottom
+        <input id="foot" value="Holiday Inn Jeddah Corniche">
+      </label>
+    </div>
+
+    <div class="grid">
+      <label>Type
+        <select id="mode">
+          <option value="table">Tables</option>
+          <option value="room">Guest rooms</option>
+          <option value="single">One general code (no number)</option>
+        </select>
+      </label>
+      <label id="numbers-wrap">Numbers
+        <input id="numbers" value="1-20" autocomplete="off">
+        <span class="hint">Ranges and lists: 1-20, 25, 30-32 · rooms: 101-120, 201-220</span>
+      </label>
+      <label>Open a specific menu (optional)
+        <input id="menu" placeholder="e.g. in-room-dining" autocomplete="off">
+        <span class="hint">Menu slug from the admin; leave empty for the menu being served now</span>
+      </label>
+      <label>Site address
+        <input id="base" autocomplete="off">
+        <span class="hint">Filled in automatically. Change only if you use a custom domain.</span>
+      </label>
+    </div>
+
+    <p class="test-link">Test link: <a id="test" target="_blank" rel="noopener"></a></p>
+    <div class="actions">
+      <button type="button" class="btn" id="print">Print cards</button>
+      <button type="button" class="btn btn-quiet" id="download">Download first code (SVG)</button>
+    </div>
+  </section>
+
+  <main class="sheet" id="sheet" aria-label="Printable QR cards"></main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const toArabicDigits = (s) => String(s).replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[d]);
+
+    // Site root = folder that contains /tools/
+    $('base').value = new URL('../', location.href).href;
+
+    function parseNumbers(text) {
+      const out = [];
+      for (const part of text.split(/[,\s]+/).filter(Boolean)) {
+        const m = part.match(/^(\d+)\s*-\s*(\d+)$/);
+        if (m) {
+          const [a, b] = [Number(m[1]), Number(m[2])];
+          if (b - a > 500) continue;                       // guard against typos like 1-10000
+          for (let n = Math.min(a, b); n <= Math.max(a, b); n++) out.push(String(n));
+        } else if (/^[\w-]+$/.test(part)) {
+          out.push(part);
+        }
+      }
+      return [...new Set(out)];
+    }
+
+    function urlFor(number) {
+      const base = $('base').value.trim().replace(/\/?$/, '/');
+      const url = new URL(`${$('slug').value.trim()}/`, base);
+      const mode = $('mode').value;
+      if (mode === 'table' && number) url.searchParams.set('t', number);
+      if (mode === 'room' && number) url.searchParams.set('r', number);
+      const menu = $('menu').value.trim();
+      if (menu) url.searchParams.set('m', menu);
+      return url.href;
+    }
+
+    function qrSvg(text) {
+      const qr = qrcode(0, 'M');           // auto size, medium error correction
+      qr.addData(text);
+      qr.make();
+      return qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+    }
+
+    function render() {
+      const mode = $('mode').value;
+      $('numbers-wrap').hidden = mode === 'single';
+      const numbers = mode === 'single' ? [null] : parseNumbers($('numbers').value);
+      const first = urlFor(numbers[0]);
+      $('test').href = first;
+      $('test').textContent = first;
+
+      const nameEn = esc($('name-en').value);
+      const nameAr = esc($('name-ar').value);
+      const foot = esc($('foot').value);
+      const scan = `<span lang="ar" dir="rtl">امسح الرمز لعرض القائمة</span><br>Scan for the menu`;
+
+      $('sheet').innerHTML = numbers.map((n) => {
+        const label = !n ? ''
+          : mode === 'table' ? `Table ${esc(n)} · طاولة ${toArabicDigits(esc(n))}`
+          : `Room ${esc(n)} · غرفة ${toArabicDigits(esc(n))}`;
+        return `
+          <article class="card">
+            <div class="card-name"><span class="ar" lang="ar" dir="rtl">${nameAr}</span>${nameEn}</div>
+            ${qrSvg(urlFor(n))}
+            ${label ? `<div class="card-label">${label}</div>` : ''}
+            <div class="card-scan">${scan}</div>
+            <div class="card-foot">${foot}</div>
+          </article>`;
+      }).join('');
+    }
+
+    ['slug', 'name-en', 'name-ar', 'foot', 'mode', 'numbers', 'menu', 'base'].forEach((id) => {
+      $(id).addEventListener('input', render);
+    });
+    $('print').addEventListener('click', () => window.print());
+    $('download').addEventListener('click', () => {
+      const svg = $('sheet').querySelector('svg');
+      if (!svg) return;
+      const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${$('slug').value}-qr.svg`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Roshan · روشن</title>
+  <meta name="description" content="Roshan Restaurant menu — Holiday Inn Jeddah Corniche · قائمة مطعم روشن — هوليداي إن كورنيش جدة">
+  <meta name="theme-color" content="#145A3C">
+  <meta name="robots" content="noindex">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="preconnect" href="https://swjffroqtxfbsmtjpimw.supabase.co" crossorigin>
+  <link rel="preload" href="../assets/fonts/readex-arabic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../assets/fonts/readex-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../assets/fonts/riyal-bold.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/menu.css">
+</head>
+<body>
+  <a class="skip" href="#app-main">Skip to menu · تخطَّ إلى القائمة</a>
+
+  <header id="app-header" class="topbar">
+    <div class="topbar-inner"><div class="brand"><span class="brand-name">روشن · Roshan</span></div></div>
+  </header>
+  <div id="app-notice" hidden></div>
+
+  <div class="hero-band">
+    <div id="hero"></div>
+    <nav id="menu-tabs" hidden></nav>
+  </div>
+  <nav id="cat-bar" hidden></nav>
+
+  <main id="app-main" tabindex="-1">
+    <div class="state" aria-busy="true"><span class="spinner"></span></div>
+  </main>
+
+  <footer id="app-footer"></footer>
+  <dialog id="sheet"></dialog>
+
+  <noscript><p style="padding:1rem">Please enable JavaScript to view the menu. · يرجى تفعيل جافاسكربت لعرض القائمة.</p></noscript>
+
+  <script type="module">
+    import boot from '../assets/js/menu/app.js';
+    import config from './config.js';
+    boot(config);
+  </script>
+</body>
+</html>

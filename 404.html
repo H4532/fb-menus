@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page not found · الصفحة غير موجودة</title>
+  <meta name="robots" content="noindex">
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #145A3C; color: #fff;
+           font-family: 'Segoe UI', Tahoma, system-ui, sans-serif; text-align: center; padding: 1.5rem; }
+    a { color: #145A3C; background: #fff; padding: .7rem 1.4rem; border-radius: 999px; text-decoration: none; font-weight: 600; display: inline-block; margin-top: 1rem; }
+    p { margin: .4rem 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <p dir="rtl" lang="ar">لم نعثر على هذه الصفحة.</p>
+    <p>We couldn’t find this page.</p>
+    <!-- GitHub Pages serves this file for every unknown path; the link below
+         goes to the site root, which lists all menus. -->
+    <a id="home" href="/">Menus · القوائم</a>
+  </main>
+  <script>
+    // Project sites live under /<repo>/ — send guests to that root, not the domain root.
+    const seg = location.pathname.split('/').filter(Boolean)[0];
+    if (location.hostname.endsWith('github.io') && seg) document.getElementById('home').href = `/${seg}/`;
+  </script>
+</body>
+</html>
