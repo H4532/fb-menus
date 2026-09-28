@@ -359,10 +359,21 @@ function watchSections() {
     for (const e of entries) visible.set(e.target.id, e.isIntersecting);
     const firstVisible = links.find((a) => visible.get(a.dataset.cat));
     if (!firstVisible) return;
+    if (firstVisible.classList.contains('is-active')) return;
     links.forEach((a) => a.classList.toggle('is-active', a === firstVisible));
-    firstVisible.scrollIntoView({ block: 'nearest', inline: 'center', behavior: smoothOk() ? 'smooth' : 'auto' });
+    centreChip(firstVisible);
   }, { rootMargin: '-120px 0px -55% 0px' });
   document.querySelectorAll('section.cat').forEach((s) => observer.observe(s));
+}
+
+// Centre the active chip by scrolling ONLY the horizontal chip strip.
+// (scrollIntoView would also scroll the page and fight the guest's own scrolling.)
+function centreChip(chip) {
+  const strip = chip.parentElement;
+  const c = chip.getBoundingClientRect();
+  const s = strip.getBoundingClientRect();
+  const delta = (c.left + c.width / 2) - (s.left + s.width / 2);
+  if (Math.abs(delta) > 2) strip.scrollBy({ left: delta, behavior: smoothOk() ? 'smooth' : 'auto' });
 }
 
 function currentSectionId() {
