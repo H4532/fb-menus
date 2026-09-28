@@ -140,6 +140,7 @@ function card(o) {
           <tfoot><tr><td></td><td>Total <small>(${o.item_count} items)</small></td><td class="num">${money(o.subtotal)}</td></tr></tfoot>
         </table>
         ${o.guest_note ? `<p class="oi-note order-note">📝 ${esc(o.guest_note)}</p>` : ''}
+        ${etaBlock(o)}
         <footer class="order-foot">
           <span class="order-mail">${mail}</span>
           <span class="order-actions">
@@ -151,12 +152,61 @@ function card(o) {
     </article>`;
 }
 
+function etaBlock(o) {
+  if (o.status === 'new' || o.status === 'accepted') {
+    const v = o.estimated_minutes ?? '';
+    const label = o.status === 'new' ? 'Estimated time' : 'Adjust: ready in';
+    return `
+      <div class="eta-edit" data-eta-for="${o.id}">
+        <span class="eta-label">⏱ ${label}</span>
+        <button type="button" class="eta-step" data-eta-step="-5" aria-label="5 minutes less">−5</button>
+        <input type="number" min="0" max="480" step="1" inputmode="numeric" value="${v}" data-eta-input aria-label="Minutes">
+        <span class="eta-unit">min</span>
+        <button type="button" class="eta-step" data-eta-step="5" aria-label="5 minutes more">+5</button>
+        ${o.status === 'accepted' && o.ready_by ? `<span class="eta-ready">Ready by <strong>${clock(o.ready_by)}</strong></span>` : ''}
+        ${o.status === 'accepted' ? '<button type="button" class="btn btn-small btn-quiet" data-eta-save>Update</button>' : ''}
+      </div>`;
+  }
+  if (o.ready_by) return `<p class="eta-ready eta-past">⏱ Was due ${clock(o.ready_by)}</p>`;
+  return '';
+}
+
+function readEta(card) {
+  const input = card.querySelector('[data-eta-input]');
+  if (!input || input.value === '') return null;
+  const n = Math.round(Number(input.value));
+  if (!Number.isFinite(n) || n < 0 || n > 480) throw new Error('Estimated time must be between 0 and 480 minutes.');
+  return n;
+}
+
 async function onAction(ctx, e) {
+  const step = e.target.closest('[data-eta-step]');
+  if (step) {
+    const input = step.closest('.eta-edit').querySelector('[data-eta-input]');
+    input.value = Math.max(0, Math.min(480, (Number(input.value) || 0) + Number(step.dataset.etaStep)));
+    return;
+  }
+  const saveEta = e.target.closest('[data-eta-save]');
+  if (saveEta) {
+    const card = saveEta.closest('.order-card');
+    try {
+      await api.setOrderEstimate(card.dataset.order, readEta(card));
+      toast('Estimated time updated');
+      api.notifyStatus(card.dataset.order).catch(() => {});
+      refresh(ctx, false);
+    } catch (err) { errorToast(err); }
+    return;
+  }
   const btn = e.target.closest('[data-status]');
   if (!btn) return;
   if (btn.dataset.status === 'cancelled' && !confirm('Cancel this order?')) return;
   btn.disabled = true;
   try {
+    // Accepting locks in the (possibly edited) estimate first, so "ready by" is right.
+    if (btn.dataset.status === 'accepted') {
+      const card = btn.closest('.order-card');
+      await api.setOrderEstimate(btn.dataset.id, readEta(card));
+    }
     await api.setOrderStatus(btn.dataset.id, btn.dataset.status);
     toast(`${DOT[btn.dataset.status]} Order ${LABEL[btn.dataset.status].toLowerCase()}`);
     refresh(ctx, false);

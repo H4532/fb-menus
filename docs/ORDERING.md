@@ -23,6 +23,18 @@ Guests pay when the order is served; nothing is charged online.
 - **Save receipt** creates a PNG receipt. On phones it opens the share sheet (save to Photos, WhatsApp, …); on computers it downloads the file.
 - **Order again** re-adds a previous order's dishes to the cart. It is only offered when the guest opened the menu from a table or room QR code.
 
+## Estimated time
+
+- Each dish has a **Preparation time** (Admin → Dishes → edit dish). Dishes without one show an orange “No prep time” tag.
+- A guest's estimate is the **longest** preparation time among the dishes in the order, since the kitchen cooks in parallel. It appears in the cart and on the confirmation as “about 25 min (confirmed when the restaurant accepts)”.
+- On a **New** order card, staff see the estimate and can change it with −5 / +5 or by typing, then press **Accept**. Acceptance sets **Ready by** = now + estimate.
+- On an **Accepted** order, staff can still adjust (“ready in N min” from now) and press **Update**.
+- The guest's banner and “My orders” show “Ready around 13:50”, updated automatically.
+
+## My orders per table/room
+
+Opened from a table or room QR code, “My orders” and the status banner show only orders for **that** table or room. Opened from the plain menu link, they show every order sent from the phone.
+
 ## Order status
 
 | Status | Colour | Set by | Guest sees |

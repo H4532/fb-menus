@@ -12,17 +12,33 @@ const WATCH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const storeKey = (slug) => `fbm:orders:${slug}`;
 
-export function savedOrders(slug) {
+const sameWhere = (a, b) => !b || (a && a.type === b.type && String(a.value) === String(b.value));
+
+/** Orders kept on this phone; with `location`, only those for that table/room. */
+export function savedOrders(slug, location = null) {
   try {
     const list = JSON.parse(localStorage.getItem(storeKey(slug)) || '[]');
-    return list.filter((o) => Date.now() - new Date(o.at).getTime() < MAX_AGE_MS);
+    return list.filter((o) => Date.now() - new Date(o.at).getTime() < MAX_AGE_MS && sameWhere(o.where, location));
   } catch {
     return [];
   }
 }
 
+function allSaved(slug) { return savedOrders(slug, null); }
+
+/** Estimate text for an order: confirmed ready time once accepted, else "about N min". */
+export function estimateText(o) {
+  if (o.status === 'accepted' && o.ready_by) {
+    const hhmm = new Intl.DateTimeFormat(lang() === 'ar' ? 'ar-SA-u-nu-arab' : lang(), {
+      timeZone: o.timezone || 'Asia/Riyadh', hour: 'numeric', minute: '2-digit' }).format(new Date(o.ready_by));
+    return t('ready_around', { time: hhmm });
+  }
+  if ((o.status || 'new') === 'new' && o.est) return t('est_about', { n: number(o.est) });
+  return '';
+}
+
 export function saveOrder(slug, snapshot) {
-  const list = [snapshot, ...savedOrders(slug).filter((o) => o.id !== snapshot.id)].slice(0, KEEP);
+  const list = [snapshot, ...allSaved(slug).filter((o) => o.id !== snapshot.id)].slice(0, KEEP);
   try { localStorage.setItem(storeKey(slug), JSON.stringify(list)); } catch { /* storage full / private mode */ }
 }
 
@@ -51,7 +67,14 @@ export function snapshotFrom(res, lines, data, location) {
       total: l.total,
     })),
     status: 'new',
+    est: estimateFor(data, lines),
   };
+}
+
+/** Longest preparation time among the dishes (kitchens cook in parallel). */
+export function estimateFor(data, lines) {
+  const mins = lines.filter((l) => !l.problem && l.item).map((l) => data.items[l.item_id]?.prep).filter((m) => m != null);
+  return mins.length ? Math.max(...mins) : null;
 }
 
 async function fetchStatuses(ids) {
@@ -63,7 +86,7 @@ async function fetchStatuses(ids) {
       body: JSON.stringify({ p_ids: ids.slice(0, 20) }),
     });
     if (!res.ok) return {};
-    return Object.fromEntries((await res.json()).map((r) => [r.id, r.status]));
+    return Object.fromEntries((await res.json()).map((r) => [r.id, r]));
   } catch {
     return {};
   }
@@ -80,8 +103,8 @@ function when(o) {
 // ---------------------------------------------------------------------------
 // "My orders" sheet
 // ---------------------------------------------------------------------------
-export async function openMyOrders({ slug, dialog, orderAgain }) {
-  const list = savedOrders(slug);
+export async function openMyOrders({ slug, location, dialog, orderAgain }) {
+  const list = savedOrders(slug, location);
   const draw = (statuses = {}) => {
     dialog.innerHTML = `
       <div class="sheet cart" role="document">
@@ -90,9 +113,10 @@ export async function openMyOrders({ slug, dialog, orderAgain }) {
         </button>
         <div class="sheet-body">
           <h2 class="sheet-title">${esc(t('my_orders'))}</h2>
-          <p class="cart-where">${esc(t('my_orders_hint'))}</p>
+          <p class="cart-where">${esc(location ? t('my_orders_here', { where: whereText(location) }) : t('my_orders_hint'))}</p>
           ${list.length ? list.map((o) => {
-            const st = statuses[o.id] || o.status || 'unknown';
+            const st = o.status || 'unknown';
+            const eta = estimateText(o);
             return `
               <article class="my-order st-${esc(st)}" data-id="${esc(o.id)}">
                 <header>
@@ -100,6 +124,7 @@ export async function openMyOrders({ slug, dialog, orderAgain }) {
                   <span>${esc(whereText(o.where))} · ${esc(when(o))}</span>
                   <span class="my-status st-${esc(st)}">${STATUS_DOT[st] || ''} ${esc(t(`status_${st}`))}</span>
                 </header>
+                ${eta ? `<p class="my-eta">⏱ ${esc(eta)}</p>` : ''}
                 <ul role="list">
                   ${o.lines.map((l) => `
                     <li><span>${l.qty}× ${esc(tr(l.name))}${l.options.length ? ` <small>(${l.options.map((x) => esc(tr(x))).join(', ')})</small>` : ''}</span>
@@ -136,11 +161,10 @@ export async function openMyOrders({ slug, dialog, orderAgain }) {
   dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
 
   // Live status, then remember it on the phone.
-  const statuses = await fetchStatuses(list.map((o) => o.id));
-  if (Object.keys(statuses).length && dialog.open) {
-    list.forEach((o) => { if (statuses[o.id]) o.status = statuses[o.id]; });
-    try { localStorage.setItem(storeKey(slug), JSON.stringify(list)); } catch { /* ignore */ }
-    draw(statuses);
+  const rows = await fetchStatuses(list.map((o) => o.id));
+  if (Object.keys(rows).length && dialog.open) {
+    applyRows(slug, rows, list);
+    draw();
   }
 }
 
@@ -265,28 +289,37 @@ export async function saveReceipt(order, onDone) {
 // onUpdate(activeOrders, changedOrders) is called after each check.
 // ---------------------------------------------------------------------------
 let watchTimer = null;
-export function activeOrders(slug) {
-  return savedOrders(slug).filter((o) => ACTIVE.includes(o.status || 'new')
+/** Copy server status/estimate onto saved orders and persist. Returns the orders whose status changed. */
+function applyRows(slug, rows, view = null) {
+  const all = allSaved(slug);
+  const changed = [];
+  for (const o of all) {
+    const r = rows[o.id];
+    if (!r) continue;
+    if (r.status !== o.status) changed.push(o);
+    o.status = r.status;
+    o.est = r.estimated_minutes ?? o.est;
+    o.ready_by = r.ready_by;
+  }
+  try { localStorage.setItem(storeKey(slug), JSON.stringify(all)); } catch { /* ignore */ }
+  if (view) view.forEach((v) => Object.assign(v, all.find((x) => x.id === v.id) || {}));
+  return changed;
+}
+
+export function activeOrders(slug, location = null) {
+  return savedOrders(slug, location).filter((o) => ACTIVE.includes(o.status || 'new')
     && Date.now() - new Date(o.at).getTime() < WATCH_MAX_AGE_MS);
 }
 
-export function watchOrders(slug, onUpdate) {
+export function watchOrders(slug, location, onUpdate) {
   clearTimeout(watchTimer);
   const tick = async () => {
-    const watching = activeOrders(slug);
+    const watching = activeOrders(slug, location);
     if (!watching.length) { onUpdate([], []); return; }       // nothing open: stop until a new order
-    const statuses = await fetchStatuses(watching.map((o) => o.id));
-    const all = savedOrders(slug);
-    const changed = [];
-    for (const o of all) {
-      const st = statuses[o.id];
-      if (st && st !== o.status) { o.status = st; changed.push(o); }
-    }
-    if (changed.length) {
-      try { localStorage.setItem(storeKey(slug), JSON.stringify(all)); } catch { /* ignore */ }
-    }
-    onUpdate(activeOrders(slug), changed);
-    if (document.visibilityState !== 'hidden' || activeOrders(slug).length) watchTimer = setTimeout(tick, WATCH_MS);
+    const rows = await fetchStatuses(watching.map((o) => o.id));
+    const changed = applyRows(slug, rows).filter((o) => sameWhere(o.where, location));
+    onUpdate(activeOrders(slug, location), changed);
+    if (activeOrders(slug, location).length) watchTimer = setTimeout(tick, WATCH_MS);
   };
   tick();
 }

@@ -5,7 +5,8 @@ import {
   initCart, onCartChange, addLine, setQty, removeLine, clearCart, resolvedLines, totals,
   unitPrice, submitOrder,
 } from './cart.js';
-import { saveOrder, snapshotFrom, saveReceipt, openMyOrders } from './my-orders.js';
+import { saveOrder, snapshotFrom, saveReceipt, openMyOrders, estimateFor } from './my-orders.js';
+import { number } from '../core/format.js';
 
 let S = null;               // shared guest state from app.js
 let onMenuStale = () => {};
@@ -112,6 +113,7 @@ function renderCart(dlg, error = '') {
           <label class="field-note"><span>${esc(t('your_name'))}</span><input name="guest-name" maxlength="60" autocomplete="given-name" value="${esc(prev.name)}"></label>
           <label class="field-note"><span>${esc(t('order_note'))}</span><textarea name="order-note" rows="2" maxlength="300">${esc(prev.note)}</textarea></label>
           <div class="cart-sum"><span>${esc(t('total'))} <small>${esc(t('vat_incl'))}</small></span><strong>${price(amount)}</strong></div>
+          ${estimateFor(S.data, lines) ? `<p class="cart-eta">⏱ ${esc(t('est_time'))}: <strong>${esc(t('est_pending', { n: number(estimateFor(S.data, lines)) }))}</strong></p>` : ''}
           ${error ? `<p class="cart-error" role="alert">${esc(error)}</p>` : ''}
           <button type="button" class="btn-send" data-send ${count === 0 || hasProblem ? 'disabled' : ''}>${esc(t('send_order'))} · ${esc(whereLabel(S.location))}</button>
           <p class="cart-pay muted">${esc(t('pay_note'))}</p>
@@ -170,6 +172,7 @@ function renderSent(dlg, res, lines, snap) {
           ${lines.filter((l) => !l.problem).map((l) => `<li><span>${l.qty}× ${esc(tr(l.item.name))}${l.options.length ? ` <small>(${l.options.map((o) => esc(tr(o.option.name))).join(', ')})</small>` : ''}</span></li>`).join('')}
         </ul>
         <div class="cart-sum"><span>${esc(t('total'))}</span><strong>${price(res.subtotal)}</strong></div>
+        ${snap.est ? `<p class="cart-eta">⏱ ${esc(t('est_time'))}: <strong>${esc(t('est_pending', { n: number(snap.est) }))}</strong></p>` : ''}
         <p class="cart-pay muted">${esc(t('pay_note'))}</p>
         <div class="sent-actions">
           <button type="button" class="btn-ghost" data-receipt>🧾 ${esc(t('save_receipt'))}</button>
@@ -187,6 +190,7 @@ function renderSent(dlg, res, lines, snap) {
 export function showMyOrders() {
   openMyOrders({
     slug: S.config.slug,
+    location: S.location,
     dialog: $('#cart'),
     orderAgain: S.orderingOn ? orderAgain : null,
   });

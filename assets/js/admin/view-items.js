@@ -122,6 +122,7 @@ function itemRow(ctx, i, draggable) {
         <span class="row-flags">
           ${i.is_active ? '' : '<span class="tag tag-muted">Hidden</span>'}
           ${i.calories == null ? '' : `<span class="tag">${i.calories} kcal</span>`}
+          ${i.prep_minutes == null ? '<span class="tag tag-warn">No prep time</span>' : `<span class="tag">⏱ ${i.prep_minutes} min</span>`}
           ${i.allergens.length ? '' : '<span class="tag tag-warn">No allergens set</span>'}
         </span>
       </button>
@@ -240,6 +241,7 @@ async function editItem(ctx, itemId, presetCategoryId) {
           ${field(`Price (${outlet.currency})`, `<input name="price" inputmode="decimal" value="${money(v.price)}" required>`, 'VAT included')}
           ${field('Calories (kcal)', `<input name="calories" inputmode="numeric" value="${v.calories ?? ''}">`, 'Required on Saudi menus')}
           ${field('Caffeine (mg)', `<input name="caffeine_mg" inputmode="numeric" value="${v.caffeine_mg ?? ''}">`, 'Drinks only')}
+          ${field('Preparation time (min)', `<input name="prep_minutes" inputmode="numeric" value="${v.prep_minutes ?? ''}">`, 'Used for the guest’s estimated time')}
         </div>
       </fieldset>
 
@@ -349,6 +351,7 @@ async function editItem(ctx, itemId, presetCategoryId) {
       price,
       calories: parseIntOrNull(form.elements.calories.value),
       caffeine_mg: parseIntOrNull(form.elements.caffeine_mg.value),
+      prep_minutes: (() => { const m = parseIntOrNull(form.elements.prep_minutes.value); if (m != null && m > 240) throw new Error('Preparation time must be 240 minutes or less.'); return m; })(),
       spice_level: Number(form.elements.spice_level.value),
       item_type: form.elements.item_type.value,
       allergens: checkedValues(form, 'allergens'),

@@ -114,6 +114,7 @@ export function openItemSheet(data, itemId, config, order = null) {
             : `<p class="muted">${esc(t('no_allergen_info'))}</p>`}
           ${item.dietary.length ? `<p>${esc(t('dietary'))}: ${item.dietary.map((d) => esc(dietaryLabel(d))).join(lang_sep())}</p>` : ''}
           ${item.spice > 0 ? `<p>${esc(t('spice'))}: ${esc(t('spice_levels')[item.spice])}</p>` : ''}
+          ${item.prep ? `<p>⏱ ${esc(t('prep_time'))}: ${esc(t('est_about', { n: item.prep }))}</p>` : ''}
           ${item.caffeine_mg != null ? `<p>${esc(t('caffeine'))}: <bdi>${item.caffeine_mg} mg</bdi></p>` : ''}
         </section>
         <p class="sheet-allergy muted">${esc(t('allergy_notice'))}</p>

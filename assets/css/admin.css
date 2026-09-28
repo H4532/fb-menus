@@ -539,3 +539,21 @@ body { background: #F3F6F4; }
 .btn-st:hover { filter: brightness(1.08); }
 
 .order-card.st-served .order-body, .order-card.st-cancelled .order-body { opacity: .85; }
+
+/* Estimated time on order cards */
+.eta-edit {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .4rem;
+  background: var(--st-bg); border-radius: 8px; padding: .45rem .55rem;
+}
+.eta-label { font-weight: 700; font-size: .85rem; color: var(--st); margin-inline-end: .2rem; }
+.eta-edit input {
+  width: 4.2rem; min-height: 40px; text-align: center; font-weight: 800; font-size: 1.05rem;
+  border: 1.5px solid var(--st); border-radius: 8px; background: #fff; color: var(--st);
+}
+.eta-step {
+  min-width: 40px; min-height: 40px; border-radius: 8px; border: 1.5px solid var(--st);
+  background: #fff; color: var(--st); font-weight: 700;
+}
+.eta-unit { font-size: .85rem; color: var(--c-muted); }
+.eta-ready { font-size: .85rem; margin-inline-start: auto; }
+.eta-past { margin: 0; color: var(--c-muted); }

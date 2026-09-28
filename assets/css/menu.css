@@ -616,3 +616,5 @@ body.has-cart #app-footer { padding-bottom: calc(5.5rem + env(safe-area-inset-bo
 .my-order > ul, .my-order > .my-total, .my-order > .my-actions { margin-inline: .9rem; }
 .my-order > ul li { background: var(--st-bg); padding: .35rem .5rem; border-radius: 6px; }
 .my-order > .my-actions { margin-bottom: .8rem; }
+.cart-eta { margin: 0; font-size: var(--step--1); color: var(--c-primary-deep); background: var(--c-accent-soft); padding: .5rem .75rem; border-radius: 10px; }
+.my-eta { margin: 0 .9rem; font-size: var(--step--1); font-weight: 600; color: var(--st, var(--c-primary)); }

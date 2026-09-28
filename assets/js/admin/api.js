@@ -162,3 +162,7 @@ export async function notifyStatus(orderId) {
   });
   return res.json().catch(() => ({ sent: false, reason: `HTTP ${res.status}` }));
 }
+
+/** Staff adjust the estimated preparation time (minutes). */
+export const setOrderEstimate = (id, minutes) =>
+  sb.from('orders').update({ estimated_minutes: minutes }).eq('id', id).then(must);
