@@ -47,9 +47,11 @@ export async function enable(outletId, userId) {
   if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_PUBLIC_KEY) });
   const j = sub.toJSON();
   const { error } = await sb.from('push_subscriptions').upsert({
-    outlet_id: outletId, user_id: userId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, device: deviceName(),
+    outlet_id: outletId, user_id: userId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
+    device: deviceName(), last_seen_at: new Date().toISOString(),
   }, { onConflict: 'outlet_id,endpoint' });
   if (error) throw error;
+  await sb.from('activity_log').insert({ outlet_id: outletId, user_id: userId, action: 'device_registered', device: deviceName() }).select().maybeSingle().catch(() => {});
 }
 
 export async function disable() {

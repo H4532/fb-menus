@@ -51,7 +51,7 @@ async function sendTo(subs: any[], payload: Record<string, unknown>) {
         { TTL: 3600, urgency: 'high' },
       );
       sent++;
-      await admin.from('push_subscriptions').update({ last_ok_at: new Date().toISOString() }).eq('id', s.id);
+      await admin.from('push_subscriptions').update({ last_ok_at: new Date().toISOString(), last_seen_at: new Date().toISOString() }).eq('id', s.id);
     } catch (e: any) {
       if (e?.statusCode === 404 || e?.statusCode === 410) {       // device unsubscribed / app removed
         await admin.from('push_subscriptions').delete().eq('id', s.id);

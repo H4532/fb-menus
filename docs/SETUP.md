@@ -68,6 +68,14 @@ delete from public.outlet_admins
 where user_id = (select id from auth.users where email = 'person@example.com');
 ```
 
+### Devices and activity log
+
+Also under **Admin → Users**:
+
+- **Devices:** every phone/computer registered for order notifications — who it belongs to, when it was registered, and when it was last successfully notified. **Remove** here (or the person doing it themselves from the Orders tab) stops that device from getting notifications.
+- **Activity log:** sign-ins, users added/changed/removed, passwords reset, and devices registered/removed for this restaurant, newest first, with who did it and when.
+- Both require the **Users** right to view.
+
 ### Managing staff after setup
 
 Once you are signed in as an owner, use **Admin → Users** instead of SQL:

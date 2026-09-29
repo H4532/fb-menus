@@ -41,6 +41,15 @@ export async function renderUsers(ctx) {
     </div>
     <p class="hint">Each person signs in with their own e-mail and password. Rights decide which tabs they see and what they can change.</p>
     <div id="users-list"><div class="loading"><span class="spinner"></span></div></div>
+
+    <div class="view-head" style="margin-top:1.5rem"><h2 class="block-title2">Devices</h2></div>
+    <p class="hint">Phones and computers registered for order notifications. A device disappears here automatically once it fails to receive a few notifications in a row (e.g. the app was removed).</p>
+    <div id="devices-list"><div class="loading"><span class="spinner"></span></div></div>
+
+    <div class="view-head" style="margin-top:1.5rem"><h2 class="block-title2">Activity log</h2></div>
+    <p class="hint">Sign-ins, account changes and device registrations for this restaurant.</p>
+    <div id="log-list"><div class="loading"><span class="spinner"></span></div></div>
+
     <section class="block rights-help">
       <h2 class="block-title">Rights</h2>
       <ul class="rights-list">${RIGHTS.map(([k, l, h]) => `<li><strong>${l}</strong> — ${h}</li>`).join('')}</ul>
@@ -54,7 +63,13 @@ export async function renderUsers(ctx) {
     if (b.dataset.uAct === 'password') resetPassword(ctx, u);
     if (b.dataset.uAct === 'remove') removeUser(ctx, u);
   });
+  root.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-dev-remove]');
+    if (b) removeDevice(ctx, b.dataset.devRemove);
+  });
   await load(ctx);
+  await loadDevices(ctx);
+  await loadLog(ctx);
 }
 
 async function load(ctx) {
@@ -217,4 +232,86 @@ async function removeUser(ctx, u) {
     toast('User removed');
     load(ctx);
   } catch (err) { errorToast(err); }
+}
+
+// ---------------------------------------------------------------------------
+// Devices
+// ---------------------------------------------------------------------------
+const sinceText = (iso) => {
+  if (!iso) return 'Never';
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins} min ago`;
+  if (mins < 60 * 24) return `${Math.round(mins / 60)} h ago`;
+  return new Date(iso).toLocaleDateString([], { day: 'numeric', month: 'short' });
+};
+
+async function loadDevices(ctx) {
+  const host = $('#devices-list');
+  if (!host) return;
+  let devices = [];
+  try {
+    ({ devices } = await api.manageUsers('devices', ctx.outlet.id));
+  } catch (err) {
+    host.innerHTML = `<div class="empty"><p>${esc(err.message)}</p></div>`;
+    return;
+  }
+  host.innerHTML = devices.length ? `
+    <ul class="rows" role="list">
+      ${devices.map((d) => `
+        <li class="row">
+          <button type="button" class="row-name" disabled style="cursor:default">
+            <span class="nm">${esc(d.device)}</span>
+            <span class="nm-sub">${esc(d.display_name || d.email)}</span>
+            <span class="row-flags">
+              <span class="tag ${d.last_ok_at ? '' : 'tag-warn'}">${d.last_ok_at ? `Notified ${esc(sinceText(d.last_ok_at))}` : 'Not notified yet'}</span>
+              <span class="tag">Registered ${esc(sinceText(d.created_at))}</span>
+            </span>
+          </button>
+          <button type="button" class="btn btn-small btn-danger-quiet" data-dev-remove="${d.id}">Remove</button>
+        </li>`).join('')}
+    </ul>` : '<div class="empty"><p>No devices registered yet. Each person turns notifications on from the Orders tab.</p></div>';
+}
+
+async function removeDevice(ctx, id) {
+  if (!(await confirmDialog('Remove this device? It will stop receiving order notifications.', 'Remove'))) return;
+  try {
+    await api.manageUsers('remove_device', ctx.outlet.id, { device_id: id });
+    toast('Device removed');
+    loadDevices(ctx);
+    loadLog(ctx);
+  } catch (err) { errorToast(err); }
+}
+
+// ---------------------------------------------------------------------------
+// Activity log
+// ---------------------------------------------------------------------------
+const LOG_LABEL = {
+  sign_in: (e) => `signed in`,
+  user_created: (e) => `added <strong>${esc(e.detail.email || '')}</strong> as ${esc(e.detail.role || '')}${e.detail.created_account === false ? ' (existing account)' : ''}`,
+  user_rights_changed: (e) => `changed <strong>${esc(e.detail.email || '')}</strong> from ${esc(e.detail.from_role)} to ${esc(e.detail.to_role)}`,
+  user_removed: (e) => `removed <strong>${esc(e.detail.email || '')}</strong>`,
+  password_reset: (e) => `set a new password for <strong>${esc(e.detail.email || '')}</strong>`,
+  device_registered: (e) => `turned on notifications on ${esc(e.device || 'a device')}`,
+  device_removed: (e) => `removed the device “${esc(e.detail.device || '')}” for <strong>${esc(e.detail.email || '')}</strong>`,
+};
+
+async function loadLog(ctx) {
+  const host = $('#log-list');
+  if (!host) return;
+  let entries = [];
+  try {
+    ({ entries } = await api.manageUsers('log', ctx.outlet.id, { limit: 100 }));
+  } catch (err) {
+    host.innerHTML = `<div class="empty"><p>${esc(err.message)}</p></div>`;
+    return;
+  }
+  host.innerHTML = entries.length ? `
+    <ul class="log-list" role="list">
+      ${entries.map((e) => `
+        <li class="log-row">
+          <span class="log-time">${esc(new Date(e.created_at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span>
+          <span class="log-text"><strong>${esc(e.actor_email || 'Someone')}</strong> ${LOG_LABEL[e.action] ? LOG_LABEL[e.action](e) : esc(e.action)}</span>
+        </li>`).join('')}
+    </ul>` : '<div class="empty"><p>No activity yet.</p></div>';
 }

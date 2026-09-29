@@ -20,6 +20,10 @@ const PERMS = ['orders', 'dishes', 'menus', 'settings', 'users'];
 const ROLES = ['owner', 'manager', 'editor', 'staff', 'custom'];
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+async function log(outletId: string, actorId: string, actorEmail: string, action: string, detail: Record<string, unknown> = {}) {
+  await admin.from('activity_log').insert({ outlet_id: outletId, user_id: actorId, actor_email: actorEmail, action, detail });
+}
+
 function normalise(role: string, permissions: unknown) {
   if (!ROLES.includes(role)) throw new Error('Unknown role.');
   if (role === 'owner') return PERMS;
@@ -99,7 +103,41 @@ Deno.serve(async (req) => {
       }
       const { error } = await admin.from('outlet_admins').insert({ outlet_id: outletId, user_id: user!.id, role, permissions, display_name: name });
       if (error) return fail(/duplicate/i.test(error.message) ? 'This person already has access.' : error.message);
+      await log(outletId, me.id, me.email || '', 'user_created', { email, role, permissions, created_account: created });
       return json({ ok: true, created, note: created ? null : 'This e-mail already had an account, so it keeps its existing password.' });
+    }
+
+    // ---------------------------------------------------------------- devices
+    if (b.action === 'devices') {
+      const { data: rows } = await admin.from('push_subscriptions').select('*').eq('outlet_id', outletId).order('last_seen_at', { ascending: false });
+      const users = Object.fromEntries((await team()).map((r: any) => [r.user_id, r]));
+      const withEmail = await Promise.all((rows || []).map(async (d: any) => {
+        const { data } = await admin.auth.admin.getUserById(d.user_id);
+        return {
+          id: d.id, device: d.device || 'Unknown device', user_id: d.user_id,
+          email: data?.user?.email || '(deleted account)',
+          display_name: users[d.user_id]?.display_name || null,
+          created_at: d.created_at, last_ok_at: d.last_ok_at, last_seen_at: d.last_seen_at,
+        };
+      }));
+      return json({ devices: withEmail });
+    }
+    if (b.action === 'remove_device') {
+      const { data: dev } = await admin.from('push_subscriptions').select('user_id, device').eq('id', String(b.device_id || '')).eq('outlet_id', outletId).maybeSingle();
+      if (!dev) return fail('Device not found.', 404);
+      if (dev.user_id !== me.id && !iAmOwner && !(mine.permissions || []).includes('users')) return fail('You can only remove your own devices.', 403);
+      await admin.from('push_subscriptions').delete().eq('id', String(b.device_id || ''));
+      const { data: du } = await admin.auth.admin.getUserById(dev.user_id);
+      await log(outletId, me.id, me.email || '', 'device_removed', { email: du?.user?.email, device: dev.device });
+      return json({ ok: true });
+    }
+
+    // ------------------------------------------------------------------- log
+    if (b.action === 'log') {
+      const { data: rows, error } = await admin.from('activity_log').select('*').eq('outlet_id', outletId)
+        .order('created_at', { ascending: false }).limit(Math.min(200, Number(b.limit) || 100));
+      if (error) return fail(error.message);
+      return json({ entries: rows || [] });
     }
 
     // Everything below targets an existing member.
@@ -118,6 +156,8 @@ Deno.serve(async (req) => {
       const { error } = await admin.from('outlet_admins').update({ role, permissions, display_name: name })
         .eq('outlet_id', outletId).eq('user_id', targetId);
       if (error) return fail(error.message);
+      const { data: targetUser } = await admin.auth.admin.getUserById(targetId);
+      await log(outletId, me.id, me.email || '', 'user_rights_changed', { email: targetUser?.user?.email, from_role: target.role, to_role: role, permissions });
       return json({ ok: true });
     }
 
@@ -127,6 +167,8 @@ Deno.serve(async (req) => {
       if (password.length < 10) return fail('The password must have at least 10 characters.');
       const { error } = await admin.auth.admin.updateUserById(targetId, { password });
       if (error) return fail(error.message);
+      const { data: targetUser } = await admin.auth.admin.getUserById(targetId);
+      await log(outletId, me.id, me.email || '', 'password_reset', { email: targetUser?.user?.email });
       return json({ ok: true });
     }
 
@@ -135,6 +177,9 @@ Deno.serve(async (req) => {
       if (targetId === me.id) return fail('You can’t remove yourself.');
       if (target.role === 'owner' && (await ownersCount()) <= 1) return fail('Keep at least one owner.');
       await admin.from('outlet_admins').delete().eq('outlet_id', outletId).eq('user_id', targetId);
+      await admin.from('push_subscriptions').delete().eq('outlet_id', outletId).eq('user_id', targetId);
+      const { data: targetUser } = await admin.auth.admin.getUserById(targetId);
+      await log(outletId, me.id, me.email || '', 'user_removed', { email: targetUser?.user?.email });
       // Delete the login entirely if it has no access to any other outlet.
       const { count } = await admin.from('outlet_admins').select('*', { count: 'exact', head: true }).eq('user_id', targetId);
       if (!count) await admin.auth.admin.deleteUser(targetId);

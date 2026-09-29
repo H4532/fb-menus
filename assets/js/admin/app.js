@@ -1,6 +1,7 @@
 // FB Menus admin — shell: sign-in, outlet selection, navigation.
 import { esc } from '../core/i18n.js';
 import * as api from './api.js';
+import { sb } from './api.js';
 import { $, $$, toast, errorToast, openDialog, field } from './ui.js';
 import { renderItems } from './view-items.js';
 import { renderMenus } from './view-menus.js';
@@ -167,6 +168,8 @@ async function selectOutlet(id) {
 
   renderShell();
   await reload();
+  sb.from('activity_log').insert({ outlet_id: entry.outlet.id, user_id: ctx.session.user.id, action: 'sign_in',
+    actor_email: ctx.session.user.email, device: navigator.userAgent.slice(0, 200) }).then(() => {}).catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
