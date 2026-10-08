@@ -42,12 +42,15 @@ create table if not exists public.simphony_item_mappings (
     references public.items(id, outlet_id) on delete cascade,
   constraint simphony_mapping_catalog_fk foreign key (catalog_item_id, outlet_id)
     references public.simphony_catalog_items(id, outlet_id) on delete restrict,
-  constraint simphony_mapping_item_rvc_unique unique (item_id, rvc_number),
-  constraint simphony_mapping_catalog_unique unique (catalog_item_id)
+  constraint simphony_mapping_item_rvc_unique unique (item_id, rvc_number)
 );
 
 create index if not exists simphony_mappings_outlet_idx
   on public.simphony_item_mappings(outlet_id, rvc_number);
+create index if not exists simphony_mappings_item_fk_idx
+  on public.simphony_item_mappings(item_id, outlet_id);
+create index if not exists simphony_mappings_catalog_fk_idx
+  on public.simphony_item_mappings(catalog_item_id, outlet_id);
 
 revoke all on public.simphony_catalog_items from anon;
 revoke all on public.simphony_item_mappings from anon;
