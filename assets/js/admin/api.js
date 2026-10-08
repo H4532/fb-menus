@@ -121,6 +121,11 @@ export async function setSimphonyMapping(outletId, itemId, catalogItem) {
   }));
 }
 
+export async function deleteSimphonyCatalogItem(catalogId) {
+  must(await sb.from('simphony_item_mappings').delete().eq('catalog_item_id', catalogId));
+  must(await sb.from('simphony_catalog_items').delete().eq('id', catalogId));
+}
+
 // ---------------------------------------------------------------------------
 // Photos
 // ---------------------------------------------------------------------------
