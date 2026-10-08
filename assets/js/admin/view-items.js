@@ -109,6 +109,7 @@ function renderLists(ctx) {
 }
 
 function itemRow(ctx, i, draggable) {
+  const mapping = ctx.data.simphony_item_mappings.find((m) => m.item_id === i.id);
   const thumb = i.photo_path
     ? `<img class="thumb" src="${photoUrl(i.photo_path, 'thumb')}" alt="" loading="lazy" width="48" height="48">`
     : '<span class="thumb thumb-empty" aria-hidden="true"></span>';
@@ -123,6 +124,7 @@ function itemRow(ctx, i, draggable) {
           ${i.is_active ? '' : '<span class="tag tag-muted">Hidden</span>'}
           ${i.calories == null ? '' : `<span class="tag">${i.calories} kcal</span>`}
           ${i.prep_minutes == null ? '<span class="tag tag-warn">No prep time</span>' : `<span class="tag">⏱ ${i.prep_minutes} min</span>`}
+          ${mapping ? '<span class="tag tag-info">MICROS ✓</span>' : '<span class="tag tag-warn">MICROS unmapped</span>'}
           ${i.allergens.length ? '' : '<span class="tag tag-warn">No allergens set</span>'}
         </span>
       </button>
@@ -218,6 +220,14 @@ async function editItem(ctx, itemId, presetCategoryId) {
   const currentGroups = item
     ? data.item_option_groups.filter((g) => g.item_id === item.id).sort((a, b) => a.sort_order - b.sort_order).map((g) => g.group_id)
     : [];
+  const currentMapping = item ? data.simphony_item_mappings.find((m) => m.item_id === item.id) : null;
+  const catalog = data.simphony_catalog_items
+    .filter((x) => x.is_active)
+    .slice()
+    .sort((a, b) => (a.rvc_number - b.rvc_number) || a.name.localeCompare(b.name));
+  const catalogLabel = (x) => `${x.rvc_number} · ${x.object_number} · ${x.name} · POS ${money(x.price)}`;
+  const catalogByLabel = new Map(catalog.map((x) => [catalogLabel(x), x]));
+  const currentCatalog = currentMapping ? catalog.find((x) => x.id === currentMapping.catalog_item_id) : null;
 
   let photoPath = v.photo_path;
   let uploadedThisSession = null;
@@ -303,6 +313,23 @@ async function editItem(ctx, itemId, presetCategoryId) {
       </fieldset>
 
       <fieldset class="field-group">
+        <legend>MICROS Simphony Mapping</legend>
+        <p class="hint">Choose the existing Simphony menu item used when this dish is posted to POS. Search by RVC, object number or MICROS item name.</p>
+        ${catalog.length ? field('MICROS item', `
+          <input name="simphony_catalog_search" list="simphony-catalog-list"
+            value="${esc(currentCatalog ? catalogLabel(currentCatalog) : '')}"
+            placeholder="Type item name or object #">
+          <datalist id="simphony-catalog-list">
+            ${catalog.map((x) => `<option value="${esc(catalogLabel(x))}"></option>`).join('')}
+          </datalist>`,
+          currentCatalog
+            ? `Mapped to RVC ${currentCatalog.rvc_number}, Object #${currentCatalog.object_number}, Definition ${currentCatalog.definition_sequence}, Price Seq ${currentCatalog.price_sequence}`
+            : 'Not mapped yet — POS submission will be blocked for this item until mapped.')
+          : '<p class="notice">No Simphony catalogue items are loaded for this outlet yet.</p>'}
+        ${currentCatalog ? '<button type="button" class="btn btn-small btn-quiet" data-clear-simphony>Clear mapping</button>' : ''}
+      </fieldset>
+
+      <fieldset class="field-group">
         <legend>Status</legend>
         ${toggle('is_available', 'Available today', v.is_available, 'Turn off when sold out; guests see it greyed out.')}
         ${toggle('is_active', 'Show on the menu', v.is_active, 'Turn off to hide the dish completely.')}
@@ -340,6 +367,10 @@ async function editItem(ctx, itemId, presetCategoryId) {
       removeBtn.hidden = true;
       label.textContent = 'Add photo';
     });
+    $('[data-clear-simphony]', dlg)?.addEventListener('click', () => {
+      const input = dlg.querySelector('[name="simphony_catalog_search"]');
+      if (input) input.value = '';
+    });
   };
 
   const onSubmit = async (form) => {
@@ -363,6 +394,9 @@ async function editItem(ctx, itemId, presetCategoryId) {
     };
     const categories = checkedValues(form, 'categories');
     const groups = checkedValues(form, 'groups');
+    const mappingText = form.elements.simphony_catalog_search?.value.trim() || '';
+    const selectedCatalog = mappingText ? catalogByLabel.get(mappingText) : null;
+    if (mappingText && !selectedCatalog) throw new Error('Choose a MICROS item from the list so its object number is saved correctly.');
 
     let saved;
     if (isNew) {
@@ -373,6 +407,8 @@ async function editItem(ctx, itemId, presetCategoryId) {
     await api.setItemCategories(outlet.id, saved.id, categories, data.category_items);
     const groupsChanged = JSON.stringify(groups) !== JSON.stringify(currentGroups);
     if (groupsChanged) await api.setItemGroups(outlet.id, saved.id, groups);
+    const mappingChanged = (currentMapping?.catalog_item_id || null) !== (selectedCatalog?.id || null);
+    if (mappingChanged) await api.setSimphonyMapping(outlet.id, saved.id, selectedCatalog);
 
     // Clean up a replaced/removed photo only after the save succeeded.
     if (item?.photo_path && item.photo_path !== photoPath) await api.deletePhoto(item.photo_path);
