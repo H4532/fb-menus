@@ -42,6 +42,7 @@ export async function myOutlets(userId) {
 const TABLES = [
   'menus', 'menu_schedules', 'categories', 'items', 'category_items',
   'option_groups', 'options', 'item_option_groups', 'buffet_prices',
+  'simphony_catalog_items', 'simphony_item_mappings',
 ];
 
 export async function loadOutlet(outletId) {
@@ -106,6 +107,18 @@ export async function setItemGroups(outletId, itemId, groupIds) {
       outlet_id: outletId, item_id: itemId, group_id: g, sort_order: (i + 1) * 10,
     }))));
   }
+}
+
+/** Replace the item's Simphony mapping. Current outlets use one RVC per outlet. */
+export async function setSimphonyMapping(outletId, itemId, catalogItem) {
+  must(await sb.from('simphony_item_mappings').delete().eq('item_id', itemId));
+  if (!catalogItem) return;
+  must(await sb.from('simphony_item_mappings').insert({
+    outlet_id: outletId,
+    item_id: itemId,
+    rvc_number: catalogItem.rvc_number,
+    catalog_item_id: catalogItem.id,
+  }));
 }
 
 // ---------------------------------------------------------------------------
