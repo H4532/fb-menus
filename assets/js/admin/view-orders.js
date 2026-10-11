@@ -1,9 +1,9 @@
 // FB Menus admin — Orders: live list of guest orders from table/room QR codes.
 import { esc } from '../core/i18n.js';
 import * as api from './api.js';
-import { $, $, toast, errorToast, money, downloadCsv, csvDateStamp } from './ui.js';
+import { $, toast, errorToast, money, downloadCsv, csvDateStamp } from './ui.js';
 import * as push from './push.js';
-import * as alerts from './alerts.js';
+import * as alerts from './alerts.js';\n\nconst qsa = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const POLL_MS = 15000;
 const NEXT = { new: 'accepted', accepted: 'ready', ready: 'served' };
@@ -54,7 +54,7 @@ export function renderOrders(ctx) {
   $('[data-export-orders]', root).addEventListener('click', () => exportOrdersCsv(ctx));
   $('[data-filter]', root).forEach((b) => b.addEventListener('click', () => {
     filter = b.dataset.filter;
-    $$('[data-filter]', root).forEach((x) => x.setAttribute('aria-selected', x === b));
+    qsa('[data-filter]', root).forEach((x) => x.setAttribute('aria-selected', x === b));
     refresh(ctx, false);
   }));
   root.addEventListener('click', (e) => onAction(ctx, e));
