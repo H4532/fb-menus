@@ -7,7 +7,7 @@ import * as api from './api.js';
 import { preparePhoto } from './image.js';
 import {
   $, $$, toast, errorToast, openDialog, langFields, readLang, field, toggle, chips,
-  checkedValues, parseMoney, parseIntOrNull, money, nameBlock,
+  checkedValues, parseMoney, parseIntOrNull, money, nameBlock, downloadCsv, csvDateStamp,
 } from './ui.js';
 
 let filterText = '';
@@ -25,7 +25,10 @@ export function renderItems(ctx) {
   root.innerHTML = `
     <div class="view-head">
       <h1>Dishes</h1>
-      <button type="button" class="btn btn-primary" data-new-item>+ Add dish</button>
+      <div>
+        <button type="button" class="btn btn-quiet" data-export-items>Export CSV</button>
+        <button type="button" class="btn btn-primary" data-new-item>+ Add dish</button>
+      </div>
     </div>
     <div class="toolbar">
       ${menus.length > 1 ? `
@@ -54,9 +57,60 @@ export function renderItems(ctx) {
     filterText = e.target.value;
     applyFilter();
   });
+  $('[data-export-items]', root).addEventListener('click', () => exportItemsCsv(ctx));
   $('[data-new-item]', root).addEventListener('click', () => editItem(ctx, null, null));
   bindRows(ctx, root);
   applyFilter();
+}
+
+function exportItemsCsv(ctx) {
+  const categoryById = Object.fromEntries(ctx.data.categories.map((c) => [c.id, c]));
+  const catalogById = Object.fromEntries(ctx.data.simphony_catalog_items.map((c) => [c.id, c]));
+  const mappingByItem = Object.fromEntries(ctx.data.simphony_item_mappings.map((m) => [m.item_id, m]));
+  const rows = ctx.data.items.slice().sort((a, b) =>
+    (a.name?.en || '').localeCompare(b.name?.en || ''));
+
+  downloadCsv(
+    `${ctx.outlet.slug}-dishes-${csvDateStamp()}.csv`,
+    [
+      { label: 'Dish ID', key: 'id' },
+      { label: 'Name EN', value: (i) => i.name?.en || '' },
+      { label: 'Name AR', value: (i) => i.name?.ar || '' },
+      { label: 'Description EN', value: (i) => i.description?.en || '' },
+      { label: 'Description AR', value: (i) => i.description?.ar || '' },
+      { label: 'Web Price', key: 'price' },
+      { label: 'Calories', key: 'calories' },
+      { label: 'Preparation Minutes', key: 'prep_minutes' },
+      { label: 'Available Today', value: (i) => i.is_available ? 'Yes' : 'No' },
+      { label: 'Show On Menu', value: (i) => i.is_active ? 'Yes' : 'No' },
+      { label: 'Categories', value: (i) => ctx.data.category_items.filter((ci) => ci.item_id === i.id)
+        .map((ci) => categoryById[ci.category_id]?.name?.en || categoryById[ci.category_id]?.name?.ar || '').filter(Boolean).join(' | ') },
+      { label: 'Allergens', value: (i) => (i.allergens || []).join(' | ') },
+      { label: 'Dietary', value: (i) => (i.dietary || []).join(' | ') },
+      { label: 'Badges', value: (i) => (i.badges || []).join(' | ') },
+      { label: 'MICROS Mapped', value: (i) => mappingByItem[i.id] ? 'Yes' : 'No' },
+      { label: 'RVC', value: (i) => {
+        const m = mappingByItem[i.id]; const cat = m ? catalogById[m.catalog_item_id] : null; return cat?.rvc_number ?? '';
+      }},
+      { label: 'MICROS Item', value: (i) => {
+        const m = mappingByItem[i.id]; const cat = m ? catalogById[m.catalog_item_id] : null; return cat?.name || '';
+      }},
+      { label: 'MICROS Object #', value: (i) => {
+        const m = mappingByItem[i.id]; const cat = m ? catalogById[m.catalog_item_id] : null; return cat?.object_number ?? '';
+      }},
+      { label: 'Definition Sequence', value: (i) => {
+        const m = mappingByItem[i.id]; const cat = m ? catalogById[m.catalog_item_id] : null; return cat?.definition_sequence ?? '';
+      }},
+      { label: 'Price Sequence', value: (i) => {
+        const m = mappingByItem[i.id]; const cat = m ? catalogById[m.catalog_item_id] : null; return cat?.price_sequence ?? '';
+      }},
+      { label: 'MICROS POS Base Price', value: (i) => {
+        const m = mappingByItem[i.id]; const cat = m ? catalogById[m.catalog_item_id] : null; return cat?.price ?? '';
+      }},
+    ],
+    rows,
+  );
+  toast('Dishes CSV exported');
 }
 
 function renderLists(ctx) {
