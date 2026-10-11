@@ -1,7 +1,7 @@
 // FB Menus admin — Simphony item mapping + catalogue maintenance.
 import { esc } from '../core/i18n.js';
 import * as api from './api.js';
-import { $, $$, money, openDialog, field, toast, confirmDialog } from './ui.js';
+import { $, $, money, openDialog, field, toast, confirmDialog, downloadCsv, csvDateStamp } from './ui.js';
 
 let filterText = '';
 let catalogFilter = '';
@@ -45,7 +45,10 @@ export function renderMappings(ctx) {
         <h1>Simphony Mapping</h1>
         <p class="hint">Manage web-dish mappings and the MICROS catalogue used for POS posting.</p>
       </div>
-      <button type="button" class="btn btn-primary" data-add-catalog>+ Add MICROS item</button>
+      <div>
+        <button type="button" class="btn btn-quiet" data-export-simphony>Export CSV</button>
+        <button type="button" class="btn btn-primary" data-add-catalog>+ Add MICROS item</button>
+      </div>
     </div>
 
     <div class="toolbar">
@@ -128,9 +131,79 @@ export function renderMappings(ctx) {
     $$('[data-catalog-row]', root).forEach((row) => { row.hidden = q && !row.dataset.search.includes(q); });
   });
 
+  $('[data-export-simphony]', root).addEventListener('click', () => exportSimphonyCsv(ctx));
   $('[data-add-catalog]', root).addEventListener('click', () => editCatalog(ctx, null));
   $$('[data-edit-catalog]', root).forEach((b) => b.addEventListener('click', () => editCatalog(ctx, b.dataset.editCatalog)));
   $$('[data-map-item]', root).forEach((b) => b.addEventListener('click', () => editMapping(ctx, b.dataset.mapItem)));
+}
+
+function exportSimphonyCsv(ctx) {
+  const catalog = ctx.data.simphony_catalog_items.slice().sort((a, b) =>
+    (a.rvc_number - b.rvc_number) || a.name.localeCompare(b.name));
+  const itemById = Object.fromEntries(ctx.data.items.map((i) => [i.id, i]));
+  const mappingByCatalog = {};
+  const mappedItemIds = new Set();
+  for (const m of ctx.data.simphony_item_mappings) {
+    (mappingByCatalog[m.catalog_item_id] ||= []).push(m);
+    mappedItemIds.add(m.item_id);
+  }
+
+  const rows = [];
+  for (const cat of catalog) {
+    const maps = mappingByCatalog[cat.id] || [null];
+    for (const map of maps) {
+      const item = map ? itemById[map.item_id] : null;
+      const expected = expectedGuestPrice(ctx, cat);
+      rows.push({
+        web_name: item ? en(item.name) : '',
+        web_price: item?.price ?? '',
+        mapped: item ? 'Yes' : 'No',
+        rvc: cat.rvc_number,
+        micros_name: cat.name,
+        object_number: cat.object_number,
+        definition_sequence: cat.definition_sequence,
+        price_sequence: cat.price_sequence,
+        pos_base_price: cat.price,
+        expected_guest_price: Number(expected).toFixed(2),
+        price_match: item ? (Math.abs(Number(item.price) - expected) <= 0.03 ? 'OK' : 'Review') : '',
+        micros_active: cat.is_active ? 'Yes' : 'No',
+        major_group: cat.major_group || '',
+        family_group: cat.family_group || '',
+        source: cat.source || '',
+      });
+    }
+  }
+  for (const item of ctx.data.items.filter((i) => !mappedItemIds.has(i.id))) {
+    rows.push({
+      web_name: en(item.name), web_price: item.price, mapped: 'No', rvc: '',
+      micros_name: '', object_number: '', definition_sequence: '', price_sequence: '',
+      pos_base_price: '', expected_guest_price: '', price_match: '', micros_active: '',
+      major_group: '', family_group: '', source: '',
+    });
+  }
+
+  downloadCsv(
+    `${ctx.outlet.slug}-simphony-mapping-${csvDateStamp()}.csv`,
+    [
+      { label: 'Web Dish', key: 'web_name' },
+      { label: 'Web Price', key: 'web_price' },
+      { label: 'Mapped', key: 'mapped' },
+      { label: 'RVC', key: 'rvc' },
+      { label: 'MICROS Item', key: 'micros_name' },
+      { label: 'Object #', key: 'object_number' },
+      { label: 'Definition Sequence', key: 'definition_sequence' },
+      { label: 'Price Sequence', key: 'price_sequence' },
+      { label: 'POS Base Price', key: 'pos_base_price' },
+      { label: 'Expected Guest Price Incl VAT', key: 'expected_guest_price' },
+      { label: 'Price Check', key: 'price_match' },
+      { label: 'MICROS Active', key: 'micros_active' },
+      { label: 'Major Group', key: 'major_group' },
+      { label: 'Family Group', key: 'family_group' },
+      { label: 'Source', key: 'source' },
+    ],
+    rows,
+  );
+  toast('Simphony CSV exported');
 }
 
 async function editMapping(ctx, itemId) {
