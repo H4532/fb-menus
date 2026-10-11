@@ -252,3 +252,36 @@ export function slugify(s) {
   return String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || `menu-${Date.now().toString(36)}`;
 }
+
+
+// ---------------------------------------------------------------------------
+// CSV export
+// ---------------------------------------------------------------------------
+function csvCell(value) {
+  const s = value == null ? '' : String(value);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+/** Download rows as UTF-8 CSV with BOM so Excel opens Arabic/Unicode correctly. */
+export function downloadCsv(filename, headers, rows) {
+  const head = headers.map((h) => csvCell(h.label ?? h.key)).join(',');
+  const body = rows.map((row) => headers.map((h) => csvCell(
+    typeof h.value === 'function' ? h.value(row) : row[h.key]
+  )).join(',')).join('\r\n');
+  const csv = '\uFEFF' + head + '\r\n' + body + '\r\n';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename.endsWith('.csv') ? filename : filename + '.csv';
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function csvDateStamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
