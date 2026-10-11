@@ -3,7 +3,9 @@ import { esc } from '../core/i18n.js';
 import * as api from './api.js';
 import { $, toast, errorToast, money, downloadCsv, csvDateStamp } from './ui.js';
 import * as push from './push.js';
-import * as alerts from './alerts.js';\n\nconst qsa = (sel, root = document) => [...root.querySelectorAll(sel)];
+import * as alerts from './alerts.js';
+
+const qsa = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const POLL_MS = 15000;
 const NEXT = { new: 'accepted', accepted: 'ready', ready: 'served' };
@@ -52,7 +54,7 @@ export function renderOrders(ctx) {
     <div id="orders-list"><div class="loading"><span class="spinner"></span></div></div>`;
 
   $('[data-export-orders]', root).addEventListener('click', () => exportOrdersCsv(ctx));
-  $('[data-filter]', root).forEach((b) => b.addEventListener('click', () => {
+  qsa('[data-filter]', root).forEach((b) => b.addEventListener('click', () => {
     filter = b.dataset.filter;
     qsa('[data-filter]', root).forEach((x) => x.setAttribute('aria-selected', x === b));
     refresh(ctx, false);
