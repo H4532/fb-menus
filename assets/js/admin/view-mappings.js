@@ -3,7 +3,9 @@ import { esc } from '../core/i18n.js';
 import * as api from './api.js';
 import { $, money, openDialog, field, toast, confirmDialog, downloadCsv, csvDateStamp } from './ui.js';
 
-const qsa = (sel, root = document) => [...root.querySelectorAll(sel)];\n\nlet filterText = '';
+const qsa = (sel, root = document) => [...root.querySelectorAll(sel)];
+
+let filterText = '';
 let catalogFilter = '';
 
 const en = (o) => o?.en || o?.ar || Object.values(o || {})[0] || '';
