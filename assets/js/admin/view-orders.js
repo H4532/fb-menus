@@ -1,7 +1,7 @@
 // FB Menus admin — Orders: live list of guest orders from table/room QR codes.
 import { esc } from '../core/i18n.js';
 import * as api from './api.js';
-import { $, $$, toast, errorToast, money } from './ui.js';
+import { $, $, toast, errorToast, money, downloadCsv, csvDateStamp } from './ui.js';
 import * as push from './push.js';
 import * as alerts from './alerts.js';
 
@@ -17,6 +17,7 @@ const ACTION = { new: 'Accept', accepted: 'Mark ready', ready: 'Mark served' };
 let timer = null;
 let seen = new Set();
 let filter = 'active';
+let lastOrders = [];
 
 const en = (o) => o?.en || o?.ar || Object.values(o || {})[0] || '';
 const ar = (o) => o?.ar || '';
@@ -36,9 +37,12 @@ export function renderOrders(ctx) {
   root.innerHTML = `
     <div class="view-head">
       <h1>Orders</h1>
-      <div class="seg" role="tablist" aria-label="Filter">
+      <div>
+        <button type="button" class="btn btn-quiet" data-export-orders>Export CSV</button>
+        <div class="seg" role="tablist" aria-label="Filter">
         <button type="button" role="tab" data-filter="active" aria-selected="${filter === 'active'}">Open</button>
         <button type="button" role="tab" data-filter="all" aria-selected="${filter === 'all'}">All today</button>
+        </div>
       </div>
     </div>
     ${enabled ? '' : `<p class="notice">Guests can’t order yet. Turn on <strong>Take orders</strong> in Settings.</p>`}
@@ -47,7 +51,8 @@ export function renderOrders(ctx) {
     <p class="hint">Updates every 15 seconds. New orders play your alert sound and show at the top.</p>
     <div id="orders-list"><div class="loading"><span class="spinner"></span></div></div>`;
 
-  $$('[data-filter]', root).forEach((b) => b.addEventListener('click', () => {
+  $('[data-export-orders]', root).addEventListener('click', () => exportOrdersCsv(ctx));
+  $('[data-filter]', root).forEach((b) => b.addEventListener('click', () => {
     filter = b.dataset.filter;
     $$('[data-filter]', root).forEach((x) => x.setAttribute('aria-selected', x === b));
     refresh(ctx, false);
@@ -75,6 +80,7 @@ async function refresh(ctx, first) {
     if (first) errorToast(err);
     return;
   }
+  lastOrders = orders;
   const fresh = orders.filter((o) => !seen.has(o.id));
   const hasFreshNew = !first && fresh.some((o) => o.status === 'new');
   const waiting = orders.filter((o) => o.status === 'new').length;
@@ -93,6 +99,49 @@ async function refresh(ctx, first) {
   host.innerHTML = list.length
     ? `<div class="order-grid">${list.map(card).join('')}</div>`
     : `<div class="empty"><p>${filter === 'active' ? 'No open orders.' : 'No orders today yet.'}</p></div>`;
+}
+
+function exportOrdersCsv(ctx) {
+  const source = filter === 'active'
+    ? lastOrders.filter((o) => ['new', 'accepted', 'ready'].includes(o.status))
+    : lastOrders;
+  const rows = [];
+  for (const o of source) {
+    const items = (o.order_items || []).slice().sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+    if (!items.length) {
+      rows.push({ order: o, item: null });
+      continue;
+    }
+    items.forEach((item) => rows.push({ order: o, item }));
+  }
+
+  downloadCsv(
+    \`\${ctx.outlet.slug}-orders-\${filter}-\${csvDateStamp()}.csv\`,
+    [
+      { label: 'Order #', value: (r) => r.order.order_no },
+      { label: 'Created At', value: (r) => r.order.created_at },
+      { label: 'Status', value: (r) => LABEL[r.order.status] || r.order.status },
+      { label: 'Location Type', value: (r) => r.order.location_type },
+      { label: 'Location', value: (r) => r.order.location },
+      { label: 'Guest Name', value: (r) => r.order.guest_name || '' },
+      { label: 'Guest Note', value: (r) => r.order.guest_note || '' },
+      { label: 'Estimated Minutes', value: (r) => r.order.estimated_minutes ?? '' },
+      { label: 'Ready By', value: (r) => r.order.ready_by || '' },
+      { label: 'Order Item Count', value: (r) => r.order.item_count ?? '' },
+      { label: 'Order Subtotal', value: (r) => r.order.subtotal ?? '' },
+      { label: 'Item Name EN', value: (r) => r.item?.name?.en || '' },
+      { label: 'Item Name AR', value: (r) => r.item?.name?.ar || '' },
+      { label: 'Qty', value: (r) => r.item?.qty ?? '' },
+      { label: 'Line Total', value: (r) => r.item?.line_total ?? '' },
+      { label: 'Options', value: (r) => (r.item?.options || []).map((x) =>
+        \`\${en(x.group)}: \${en(x.option)}\`).join(' | ') },
+      { label: 'Item Note', value: (r) => r.item?.note || '' },
+      { label: 'Notified At', value: (r) => r.order.notified_at || '' },
+      { label: 'Notification Error', value: (r) => r.order.notify_error || '' },
+    ],
+    rows,
+  );
+  toast(\`Orders CSV exported (\${source.length} orders)\`);
 }
 
 function card(o) {
