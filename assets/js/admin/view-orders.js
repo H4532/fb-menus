@@ -116,7 +116,7 @@ function exportOrdersCsv(ctx) {
   }
 
   downloadCsv(
-    \`\${ctx.outlet.slug}-orders-\${filter}-\${csvDateStamp()}.csv\`,
+    `${ctx.outlet.slug}-orders-${filter}-${csvDateStamp()}.csv`,
     [
       { label: 'Order #', value: (r) => r.order.order_no },
       { label: 'Created At', value: (r) => r.order.created_at },
@@ -134,14 +134,14 @@ function exportOrdersCsv(ctx) {
       { label: 'Qty', value: (r) => r.item?.qty ?? '' },
       { label: 'Line Total', value: (r) => r.item?.line_total ?? '' },
       { label: 'Options', value: (r) => (r.item?.options || []).map((x) =>
-        \`\${en(x.group)}: \${en(x.option)}\`).join(' | ') },
+        `${en(x.group)}: ${en(x.option)}`).join(' | ') },
       { label: 'Item Note', value: (r) => r.item?.note || '' },
       { label: 'Notified At', value: (r) => r.order.notified_at || '' },
       { label: 'Notification Error', value: (r) => r.order.notify_error || '' },
     ],
     rows,
   );
-  toast(\`Orders CSV exported (\${source.length} orders)\`);
+  toast(`Orders CSV exported (${source.length} orders)`);
 }
 
 function card(o) {
