@@ -1,9 +1,9 @@
 // FB Menus admin — Simphony item mapping + catalogue maintenance.
 import { esc } from '../core/i18n.js';
 import * as api from './api.js';
-import { $, $, money, openDialog, field, toast, confirmDialog, downloadCsv, csvDateStamp } from './ui.js';
+import { $, money, openDialog, field, toast, confirmDialog, downloadCsv, csvDateStamp } from './ui.js';
 
-let filterText = '';
+const qsa = (sel, root = document) => [...root.querySelectorAll(sel)];\n\nlet filterText = '';
 let catalogFilter = '';
 
 const en = (o) => o?.en || o?.ar || Object.values(o || {})[0] || '';
@@ -123,18 +123,18 @@ export function renderMappings(ctx) {
   $('[data-map-search]', root).addEventListener('input', (e) => {
     filterText = e.target.value;
     const q = filterText.trim().toLowerCase();
-    $$('[data-map-row]', root).forEach((row) => { row.hidden = q && !row.dataset.search.includes(q); });
+    qsa('[data-map-row]', root).forEach((row) => { row.hidden = q && !row.dataset.search.includes(q); });
   });
   $('[data-catalog-search]', root).addEventListener('input', (e) => {
     catalogFilter = e.target.value;
     const q = catalogFilter.trim().toLowerCase();
-    $$('[data-catalog-row]', root).forEach((row) => { row.hidden = q && !row.dataset.search.includes(q); });
+    qsa('[data-catalog-row]', root).forEach((row) => { row.hidden = q && !row.dataset.search.includes(q); });
   });
 
   $('[data-export-simphony]', root).addEventListener('click', () => exportSimphonyCsv(ctx));
   $('[data-add-catalog]', root).addEventListener('click', () => editCatalog(ctx, null));
-  $$('[data-edit-catalog]', root).forEach((b) => b.addEventListener('click', () => editCatalog(ctx, b.dataset.editCatalog)));
-  $$('[data-map-item]', root).forEach((b) => b.addEventListener('click', () => editMapping(ctx, b.dataset.mapItem)));
+  qsa('[data-edit-catalog]', root).forEach((b) => b.addEventListener('click', () => editCatalog(ctx, b.dataset.editCatalog)));
+  qsa('[data-map-item]', root).forEach((b) => b.addEventListener('click', () => editMapping(ctx, b.dataset.mapItem)));
 }
 
 function exportSimphonyCsv(ctx) {
