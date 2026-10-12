@@ -150,7 +150,7 @@ export async function deletePhoto(basePath) {
 // ---------------------------------------------------------------------------
 export const loadOrders = (outletId, sinceIso) => sb
   .from('orders')
-  .select('*, order_items(*)')
+  .select('*, order_items(*), simphony_jobs(*)')
   .eq('outlet_id', outletId)
   .gte('created_at', sinceIso)
   .order('created_at', { ascending: false })
@@ -159,6 +159,10 @@ export const loadOrders = (outletId, sinceIso) => sb
 
 // Only the status column is writable by staff (column-level grant).
 export const setOrderStatus = (id, status) => sb.from('orders').update({ status }).eq('id', id).then(must);
+
+/** Queue an accepted table order for the onsite Simphony bridge. */
+export const queueSimphonyOrder = (orderId) =>
+  sb.rpc('queue_simphony_order', { p_order_id: orderId }).then(must);
 
 export const getOrderSettings = (outletId) =>
   sb.from('outlet_order_settings').select('*').eq('outlet_id', outletId).maybeSingle().then(must);
