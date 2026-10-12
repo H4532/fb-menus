@@ -92,12 +92,16 @@ $soap = @"
 $itemsXml
    </ppMenuItemsEx>
    <ppComboMealsEx />
-   <pSvcChargeEx><SvcChgObjectNum>0</SvcChgObjectNum></pSvcChargeEx>
+   <pSvcChargeEx />
    <pSubTotalDiscountEx />
    <pTmedDetailEx2>
-    <TmedEPayment><PaymentCommand>NO_E_PAYMENT</PaymentCommand><BaseAmount /><TipAmount /><CashBackAmount /></TmedEPayment>
-    <TmedObjectNum>1001</TmedObjectNum>
-    <TmedReference>$tmedRef</TmedReference>
+    <SimphonyPosApi_TmedDetailItemEx2>
+     <Extensibility />
+     <TmedEPayment><PaymentCommand>NO_E_PAYMENT</PaymentCommand><BaseAmount /><TipAmount /><CashBackAmount /></TmedEPayment>
+     <TmedObjectNum>1001</TmedObjectNum>
+     <TmedPartialPayment />
+     <TmedReference>$tmedRef</TmedReference>
+    </SimphonyPosApi_TmedDetailItemEx2>
    </pTmedDetailEx2>
    <pTotalsResponseEx />
    <ppCheckPrintLines />
