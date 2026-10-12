@@ -155,6 +155,8 @@ function card(o) {
   const mail = o.notified_at
     ? '<span class="tag tag-info">E-mailed</span>'
     : (o.notify_error ? `<span class="tag tag-warn" title="${esc(o.notify_error)}">E-mail not sent</span>` : '');
+  const simJob = (o.simphony_jobs || [])[0] || null;
+  const simphony = simphonyBlock(o, simJob);
   return `
     <article class="order-card st-${o.status}" data-order="${o.id}">
       <header class="order-band">
@@ -188,6 +190,7 @@ function card(o) {
         </table>
         ${o.guest_note ? `<p class="oi-note order-note">📝 ${esc(o.guest_note)}</p>` : ''}
         ${etaBlock(o)}
+        ${simphony}
         <footer class="order-foot">
           <span class="order-mail">${mail}</span>
           <span class="order-actions">
@@ -197,6 +200,39 @@ function card(o) {
         </footer>
       </div>
     </article>`;
+}
+
+function simphonyBlock(o, job) {
+  if (o.location_type !== 'table' || !['accepted','ready','served'].includes(o.status)) return '';
+  if (!job) {
+    if (o.status !== 'accepted') return '';
+    return `<div class="eta-edit simphony-send-box">
+      <span class="eta-label">MICROS Simphony</span>
+      <span class="hint">Opens Table ${esc(o.location)} with Order Type 2 - Visitor and the mapped items.</span>
+      <button type="button" class="btn btn-primary btn-small" data-simphony-send="${o.id}">Send to Simphony</button>
+    </div>`;
+  }
+  if (job.status === 'queued' || job.status === 'processing') {
+    return `<div class="eta-edit simphony-send-box">
+      <span class="eta-label">MICROS Simphony</span>
+      <span class="tag tag-info">${job.status === 'queued' ? 'Queued' : 'Sending…'}</span>
+      <span class="hint">Table ${job.table_number} · Visitor</span>
+    </div>`;
+  }
+  if (job.status === 'sent') {
+    const ref = job.simphony_check_num ? `Check #${job.simphony_check_num}` : 'Sent';
+    return `<div class="eta-edit simphony-send-box">
+      <span class="eta-label">MICROS Simphony</span>
+      <span class="tag tag-info">✓ ${esc(ref)}</span>
+      <span class="hint">Table ${job.table_number} · Visitor${job.simphony_check_seq ? ` · Seq ${job.simphony_check_seq}` : ''}</span>
+    </div>`;
+  }
+  return `<div class="eta-edit simphony-send-box">
+    <span class="eta-label">MICROS Simphony</span>
+    <span class="tag tag-warn">Failed</span>
+    <span class="hint" title="${esc(job.error_message || '')}">${esc(job.error_message || 'Could not send this order to Simphony.')}</span>
+    <button type="button" class="btn btn-primary btn-small" data-simphony-send="${o.id}">Retry Simphony</button>
+  </div>`;
 }
 
 function etaBlock(o) {
@@ -227,6 +263,25 @@ function readEta(card) {
 }
 
 async function onAction(ctx, e) {
+  const simphonyBtn = e.target.closest('[data-simphony-send]');
+  if (simphonyBtn) {
+    simphonyBtn.disabled = true;
+    try {
+      await api.queueSimphonyOrder(simphonyBtn.dataset.simphonySend);
+      toast('Queued for Simphony');
+      await refresh(ctx, false);
+    } catch (err) {
+      const msg = String(err?.message || err || '');
+      if (/SIMPHONY_ITEM_UNMAPPED/.test(msg)) errorToast(new Error('One or more order items are not mapped to MICROS.'));
+      else if (/SIMPHONY_OPTIONS_UNMAPPED/.test(msg)) errorToast(new Error('This order contains choices/add-ons that are not mapped to MICROS yet.'));
+      else if (/SIMPHONY_TABLE_ONLY/.test(msg)) errorToast(new Error('Only table orders can be sent to Simphony.'));
+      else if (/ORDER_NOT_ACCEPTED/.test(msg)) errorToast(new Error('Accept the order before sending it to Simphony.'));
+      else errorToast(err);
+      simphonyBtn.disabled = false;
+    }
+    return;
+  }
+
   const step = e.target.closest('[data-eta-step]');
   if (step) {
     const input = step.closest('.eta-edit').querySelector('[data-eta-input]');
