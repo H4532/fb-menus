@@ -120,8 +120,8 @@ $itemsXml
   }
 
   Start-Sleep -Seconds 2
-  $checks = Get-OpenChecks $rvc | Where-Object { [int]$_.CheckTableObjectNum -eq $table }
-  if (-not $checks) { throw 'No open Simphony check found after PostTransactionEx2.' }
+  $checks = Get-OpenChecks $rvc | Where-Object { [string]$_.CheckID -eq $checkId }
+  if (-not $checks) { throw "No open Simphony check found for CheckID $checkId after PostTransactionEx2." }
   $check = $checks | Sort-Object { [int]$_.CheckSeq } -Descending | Select-Object -First 1
 
   [pscustomobject]@{
